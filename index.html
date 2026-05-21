@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="theme-color" content="#0D0A14"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CaveManager"/>
+<meta name="application-name" content="CaveManager Pro"/>
+<meta name="description" content="Gestion cave à vin — SaaS Burkina Faso"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
+<title>CaveManager Pro — SaaS Cave à Vin BF</title>
+
+<!-- ══ FIREBASE SDK (compat) ══════════════════════════════
+     Laisser ces scripts — ils sont inactifs tant que
+  FIREBASE_CONFIG.apiKey = 'VOTRE CLÉ API'
+  
+     ════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Décommenter si vous utilisez Realtime Database pour le .info/connected :
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+:root{
+  --wine:#8B1A1A;--wine-l:#B22222;--wine-d:#5C0F0F;
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#9A7A30;
+  --bg:#0D0A14;--surf:#1A1425;--surf2:#231B35;--surf3:#2E2445;--surf4:#3A2E55;
+  --text:#F0EAF5;--muted:#9B8FB0;--muted2:#6B5F80;
+  --ok:#2ECC71;--warn:#F39C12;--err:#E74C3C;--info:#3498DB;--purple:#A855F7;
+  --border:rgba(201,168,76,.13);--border2:rgba(201,168,76,.25);
+  --r:12px;--rs:8px;--shadow:0 4px 24px rgba(0,0,0,.45);
+  --plan-starter:#3498DB;--plan-pro:#C9A84C;--plan-enterprise:#A855F7;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:var(--surf3);border-radius:2px;}
+select option{background:var(--surf2);}
+
+/* ─── SPLASH ─────────────────────────── */
+#splash{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at 30% 40%,#2a0a0a,#0D0A14 60%),linear-gradient(135deg,#0D0A14,#1a0a2e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:opacity .6s;}
+.splash-logo{font-family:'Playfair Display',serif;font-size:2.6rem;color:var(--gold);letter-spacing:3px;}
+.splash-sub{font-size:.78rem;letter-spacing:5px;color:var(--muted);text-transform:uppercase;}
+.splash-badge{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);color:var(--gold-l);font-size:.7rem;padding:3px 12px;border-radius:20px;letter-spacing:2px;margin-top:4px;}
+.loader{width:60px;height:3px;background:var(--surf3);border-radius:2px;overflow:hidden;margin-top:20px;}
+.loader-bar{height:100%;background:linear-gradient(90deg,var(--wine),var(--gold),var(--purple));border-radius:2px;animation:ld 2s ease forwards;}
+@keyframes ld{from{width:0}to{width:100%}}
+
+/* ─── ONBOARDING / AUTH ──────────────── */
+#authScreen{display:none;min-height:100vh;background:radial-gradient(ellipse at 20% 50%,rgba(139,26,26,.3),transparent 60%),linear-gradient(135deg,#0D0A14,#1a0a2e 60%,#0a0a1a);flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:0;}
+.auth-card{background:var(--surf);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:400px;box-shadow:var(--shadow);overflow:hidden;}
+.auth-header{background:linear-gradient(135deg,var(--wine-d),rgba(139,26,26,.4));padding:28px 28px 20px;text-align:center;}
+.auth-header h1{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--gold);margin-bottom:4px;}
+.auth-header p{font-size:.78rem;color:rgba(201,168,76,.7);}
+.auth-body{padding:24px 28px;}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-1px;}
+.auth-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.auth-section{display:none;} .auth-section.active{display:block;}
+
+/* ─── PLANS PRICING ──────────────────── */
+.plans-grid{display:grid;gap:10px;margin:16px 0;}
+.plan-card{border:2px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:all .2s;position:relative;}
+.plan-card.selected-plan{border-color:var(--gold);background:rgba(201,168,76,.07);}
+.plan-card.recommended::before{content:'RECOMMANDÉ';position:absolute;top:-1px;right:12px;background:var(--gold);color:#1a0a2e;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:0 0 6px 6px;letter-spacing:1px;}
+.plan-name{font-weight:700;font-size:.95rem;margin-bottom:2px;}
+.plan-price{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--gold);}
+.plan-price span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--muted);}
+.plan-features{font-size:.75rem;color:var(--muted);margin-top:8px;line-height:1.8;}
+.plan-starter .plan-name{color:var(--plan-starter);}
+.plan-pro .plan-name{color:var(--plan-pro);}
+.plan-enterprise .plan-name{color:var(--plan-enterprise);}
+
+/* ─── PIN ────────────────────────────── */
+.pin-display{display:flex;gap:14px;justify-content:center;margin:16px 0;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);background:transparent;transition:all .2s;}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.5);}
+.pin-dot.error{background:var(--err);border-color:var(--err);animation:shake .4s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.pin-btn{padding:15px;text-align:center;font-size:1.2rem;font-weight:600;background:var(--surf2);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;color:var(--text);transition:all .15s;user-select:none;}
+.pin-btn:hover{background:var(--surf3);border-color:var(--gold);}
+.pin-btn:active{transform:scale(.94);}
+
+/* ─── TOPBAR ─────────────────────────── */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:56px;background:rgba(26,20,37,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:0 14px;}
+.topbar-brand{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);flex:1;display:flex;flex-direction:column;gap:0;}
+.topbar-shop{font-size:.68rem;color:var(--muted);font-family:'DM Sans',sans-serif;}
+.topbar-actions{display:flex;align-items:center;gap:7px;}
+.t-dot{width:8px;height:8px;border-radius:50%;background:#444;transition:all .4s;cursor:pointer;}
+.t-dot.ok{background:var(--ok);box-shadow:0 0 6px var(--ok);}
+.t-dot.err{background:var(--err);}
+.t-dot.ble{background:#444;}
+.t-dot.ble.on{background:var(--purple);box-shadow:0 0 6px var(--purple);}
+.t-dot.ble.blink{background:var(--warn);animation:blink .6s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.t-btn{width:32px;height:32px;border-radius:8px;background:var(--surf2);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .2s;}
+.t-btn:hover{border-color:var(--gold);color:var(--gold);}
+.badge-role{padding:3px 9px;border-radius:20px;font-size:.65rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.role-caissiere{background:rgba(52,152,219,.2);color:var(--info);}
+.role-gerant{background:rgba(201,168,76,.2);color:var(--gold);}
+.role-owner{background:rgba(139,26,26,.3);color:#FF9090;}
+.role-superadmin{background:rgba(168,85,247,.25);color:#D0A0FF;}
+.plan-chip{padding:2px 8px;border-radius:20px;font-size:.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.chip-starter{background:rgba(52,152,219,.2);color:var(--plan-starter);}
+.chip-pro{background:rgba(201,168,76,.2);color:var(--gold);}
+.chip-enterprise{background:rgba(168,85,247,.2);color:var(--plan-enterprise);}
+
+/* ─── BOTTOM NAV ─────────────────────── */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(26,20,37,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 2px 13px;cursor:pointer;color:var(--muted2);font-size:.6rem;gap:3px;position:relative;transition:color .2s;}
+.nav-icon{font-size:1.2rem;transition:all .2s;}
+.nav-item.active{color:var(--gold);}
+.nav-item.active .nav-icon{filter:drop-shadow(0 0 8px rgba(201,168,76,.6));transform:translateY(-1px);}
+.nav-badge{position:absolute;top:6px;right:calc(50% - 16px);background:var(--err);color:#fff;font-size:.58rem;font-weight:700;padding:1px 5px;border-radius:8px;min-width:15px;text-align:center;line-height:1.4;}
+
+/* ─── PAGES ──────────────────────────── */
+.page{display:none;padding:68px 14px 86px;min-height:100vh;animation:fadein .25s ease;}
+.page.active{display:block;}
+@keyframes fadein{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ─── COMPONENTS ─────────────────────── */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sec-title{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--gold);}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.card-dark{background:var(--surf2);}
+.card-wine{background:linear-gradient(135deg,rgba(92,15,15,.6),rgba(139,26,26,.2));border-color:rgba(139,26,26,.4);}
+.card-gold{background:linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.04));border-color:rgba(201,168,76,.3);}
+.card-purple{background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(168,85,247,.04));border-color:rgba(168,85,247,.3);}
+.kpi4{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.kpi3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:13px 11px;}
+.kpi-lbl{font-size:.67rem;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;}
+.kpi-val{font-size:1.25rem;font-weight:600;}
+.kpi-val.g{color:var(--gold);}
+.kpi-val.ok{color:var(--ok);}
+.kpi-val.err{color:var(--err);}
+.kpi-val.info{color:var(--info);}
+.kpi-val.pur{color:var(--purple);}
+.kpi-sub{font-size:.7rem;color:var(--muted);margin-top:2px;}
+.alert{padding:10px 12px;border-radius:var(--rs);font-size:.81rem;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;}
+.al-err{background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);color:#FF9080;}
+.al-warn{background:rgba(243,156,18,.12);border:1px solid rgba(243,156,18,.35);color:#FFD080;}
+.al-ok{background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);color:#80FFB0;}
+.al-info{background:rgba(52,152,219,.12);border:1px solid rgba(52,152,219,.35);color:#90D0FF;}
+.al-pur{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);color:#D0A0FF;}
+.divider{height:1px;background:var(--border);margin:12px 0;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;}
+.btn-w{width:100%;}
+.btn-primary{background:linear-gradient(135deg,var(--wine),var(--wine-l));color:#fff;}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#1a0a2e;}
+.btn-gold:hover{filter:brightness(1.08);}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--muted);}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.btn-ok{background:var(--ok);color:#fff;}
+.btn-err{background:var(--err);color:#fff;}
+.btn-purple{background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.4);color:#C084FC;}
+.btn-purple:hover{background:rgba(168,85,247,.35);}
+.btn-sm{padding:6px 12px;font-size:.78rem;}
+.btn-xs{padding:4px 9px;font-size:.72rem;}
+.btn-icon{width:32px;height:32px;padding:0;border-radius:8px;background:var(--surf2);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.95rem;transition:all .2s;}
+.btn-icon:hover{border-color:var(--gold);color:var(--gold);}
+
+/* FORMS */
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:.74rem;color:var(--muted);margin-bottom:4px;letter-spacing:.8px;text-transform:uppercase;}
+.fi{width:100%;padding:10px 13px;background:var(--surf2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;}
+.fi:focus{border-color:var(--gold);}
+.fi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tabs{display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.tab{padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:500;cursor:pointer;white-space:nowrap;border:1px solid var(--border);background:var(--surf);color:var(--muted);transition:all .2s;}
+.tab.active{background:rgba(201,168,76,.18);border-color:var(--gold);color:var(--gold);}
+
+/* SEARCH */
+.srch{display:flex;gap:7px;margin-bottom:10px;}
+.srch-in{flex:1;padding:10px 13px;background:var(--surf2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;}
+.srch-in:focus{border-color:var(--gold);}
+
+/* MODAL */
+.modal-ov{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center;}
+.modal-ov.active{display:flex;}
+.modal{background:var(--surf);border:1px solid var(--border2);border-radius:20px 20px 0 0;padding:20px 18px 28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.modal-handle{width:36px;height:4px;background:var(--surf3);border-radius:2px;margin:0 auto 16px;}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--gold);margin-bottom:14px;}
+.modal-2btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+
+/* TOAST */
+#toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rs);padding:10px 18px;font-size:.82rem;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:calc(100% - 28px);text-align:center;white-space:nowrap;}
+#toast.show{opacity:1;}
+
+/* POS SPECIFICS */
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.prod-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rs);padding:10px 9px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.prod-card::after{content:'';position:absolute;inset:0;background:rgba(201,168,76,.06);opacity:0;transition:opacity .2s;}
+.prod-card:hover::after{opacity:1;}
+.prod-card:hover{border-color:rgba(201,168,76,.4);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3);}
+.prod-card:active{transform:scale(.96);}
+.prod-card.oos{opacity:.4;pointer-events:none;}
+.prod-emoji{font-size:1.5rem;margin-bottom:4px;}
+.prod-name{font-size:.8rem;font-weight:600;margin-bottom:2px;line-height:1.3;}
+.prod-price{font-size:.88rem;color:var(--gold);font-weight:700;}
+.prod-stock{font-size:.68rem;color:var(--muted);}
+.pbadge{position:absolute;top:5px;right:5px;padding:2px 6px;border-radius:6px;font-size:.6rem;font-weight:700;}
+.pbadge-low{background:rgba(243,156,18,.3);color:var(--warn);}
+.pbadge-out{background:rgba(231,76,60,.3);color:var(--err);}
+.cart-sec{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:12px;}
+.cart-hdr{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin-bottom:8px;}
+.cart-body{max-height:200px;overflow-y:auto;}
+.cart-row{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--border);}
+.cart-row:last-child{border:none;}
+.cart-name{flex:1;font-size:.81rem;line-height:1.3;}
+.qbtn{background:var(--surf2);border:1px solid var(--border);border-radius:5px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:.85rem;flex-shrink:0;}
+.cart-qty{font-size:.85rem;font-weight:700;min-width:20px;text-align:center;}
+.cart-sub{font-size:.8rem;color:var(--gold);font-weight:600;min-width:55px;text-align:right;}
+.cart-foot{display:flex;justify-content:space-between;align-items:center;padding-top:10px;margin-top:6px;border-top:1px solid var(--border);}
+.cart-total{font-size:1.25rem;font-weight:700;color:var(--gold);}
+.pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0;}
+.pay-m{background:var(--surf2);border:2px solid var(--border);border-radius:var(--rs);padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s;font-size:.74rem;color:var(--muted);}
+.pay-m .pi{font-size:1.25rem;display:block;margin-bottom:3px;}
+.pay-m.sel{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.09);}
+
+/* STOCK */
+.stk-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
+.stk-row:last-child{border:none;}
+.stk-info{flex:1;min-width:0;}
+.stk-name{font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.stk-meta{font-size:.7rem;color:var(--muted);}
+.stk-bar{height:3px;background:var(--surf3);border-radius:2px;margin-top:5px;overflow:hidden;}
+.stk-fill{height:100%;border-radius:2px;transition:width .5s;}
+
+/* HISTORY */
+.sale-row{background:var(--surf);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;}
+.sale-info{flex:1;min-width:0;}
+.sale-title{font-size:.84rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sale-meta{font-size:.7rem;color:var(--muted);}
+.s-badge{padding:2px 8px;border-radius:12px;font-size:.66rem;font-weight:600;}
+.s-esp{background:rgba(46,204,113,.18);color:var(--ok);}
+.s-mob{background:rgba(52,152,219,.18);color:var(--info);}
+.s-cred{background:rgba(243,156,18,.18);color:var(--warn);}
+
+/* CLIENTS */
+.cli-row{background:var(--surf);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;}
+.cli-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--wine),var(--wine-d));display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;flex-shrink:0;}
+
+/* RAPPORTS */
+.rpt-kpi-big{background:linear-gradient(135deg,rgba(92,15,15,.5),rgba(139,26,26,.15));border:1px solid rgba(139,26,26,.4);border-radius:var(--r);padding:18px 14px;text-align:center;margin-bottom:10px;}
+.rpt-val{font-size:1.9rem;font-weight:700;color:var(--gold);font-family:'Playfair Display',serif;}
+.rpt-lbl{font-size:.76rem;color:var(--muted);margin-top:3px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.bar-lbl{font-size:.75rem;color:var(--muted);width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:16px;background:var(--surf3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;transition:width .7s;}
+.bar-val{font-size:.72rem;color:var(--gold);font-weight:600;width:64px;text-align:right;}
+
+/* AUDIT */
+.audit-row{padding:8px 0;border-bottom:1px solid var(--border);font-size:.79rem;display:flex;gap:8px;}
+.audit-t{color:var(--muted);white-space:nowrap;font-size:.7rem;min-width:34px;}
+.audit-u{color:var(--gold);}
+.atag{padding:1px 6px;border-radius:6px;font-size:.62rem;font-weight:700;margin-left:4px;}
+.atag-v{background:rgba(46,204,113,.2);color:var(--ok);}
+.atag-s{background:rgba(52,152,219,.2);color:var(--info);}
+.atag-c{background:rgba(201,168,76,.2);color:var(--gold);}
+.atag-a{background:rgba(231,76,60,.2);color:var(--err);}
+
+/* OWNER PANEL */
+.shop-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;}
+.shop-card:hover{border-color:var(--gold-d);}
+.shop-avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--wine-d),var(--wine));display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+.shop-name{font-weight:700;font-size:.92rem;}
+.shop-meta{font-size:.72rem;color:var(--muted);}
+.sub-badge{padding:3px 10px;border-radius:12px;font-size:.68rem;font-weight:700;}
+.sub-active{background:rgba(46,204,113,.2);color:var(--ok);}
+.sub-trial{background:rgba(243,156,18,.2);color:var(--warn);}
+.sub-expired{background:rgba(231,76,60,.2);color:var(--err);}
+
+/* BLE PRINTER */
+.ble-status-bar{background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.print-btn{padding:8px 12px;border-radius:7px;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);color:#C084FC;cursor:pointer;font-size:.8rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all .2s;}
+.print-btn:hover{background:rgba(168,85,247,.28);}
+.print-btn:disabled{opacity:.35;cursor:not-allowed;}
+.ticket-prev{background:#fff;color:#111;font-family:'Courier New',monospace;font-size:.69rem;padding:10px;border-radius:5px;white-space:pre;max-height:190px;overflow-y:auto;line-height:1.55;}
+
+/* SUBSCRIPTION WALL */
+.sub-wall{background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(168,85,247,.05));border:1px solid rgba(168,85,247,.35);border-radius:var(--r);padding:24px 18px;text-align:center;margin:20px 0;}
+.sub-wall-icon{font-size:2.5rem;margin-bottom:10px;}
+.sub-wall h3{font-family:'Playfair Display',serif;color:var(--gold);margin-bottom:6px;}
+.sub-wall p{font-size:.83rem;color:var(--muted);margin-bottom:16px;}
+
+/* SUPERADMIN */
+.saas-metric{background:var(--surf2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;text-align:center;}
+.saas-metric-val{font-size:1.5rem;font-weight:700;}
+.saas-metric-lbl{font-size:.7rem;color:var(--muted);margin-top:2px;}
+.tenant-row{background:var(--surf);border:1px solid var(--border);border-radius:var(--rs);padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px;}
+
+/* UTILS */
+.flex{display:flex;align-items:center;gap:8px;}
+.flex-b{display:flex;align-items:center;justify-content:space-between;}
+.mt8{margin-top:8px;} .mt12{margin-top:12px;} .mt16{margin-top:16px;}
+.tc{text-align:center;} .muted{color:var(--muted);font-size:.83rem;}
+.bold{font-weight:700;} .gold{color:var(--gold);} .ok{color:var(--ok);} .err{color:var(--err);}
+.pill{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ═══ SPLASH ═══════════════════════════════════ -->
+<div id="splash">
+  <div style="font-size:3.5rem;filter:drop-shadow(0 0 24px rgba(139,26,26,.8))">🍷</div>
+  <div class="splash-logo">CaveManager</div>
+  <div class="splash-sub">Pro Edition</div>
+  <div class="splash-badge">SaaS · BF · v3.0</div>
+  <div class="loader"><div class="loader-bar"></div></div>
+</div>
+
+<!-- ═══ AUTH / ONBOARDING ════════════════════════ -->
+<div id="authScreen">
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-size:2.8rem">🍷</div>
+    <div id="authBrandTitle" style="font-family:'Playfair Display',serif;font-size:1.7rem;color:var(--gold);cursor:default;user-select:none;-webkit-user-select:none;" onclick="handleBrandClick()">CaveManager Pro</div>
+    <div style="font-size:.75rem;letter-spacing:3px;color:var(--muted);text-transform:uppercase">Gestion Cave à Vin · Burkina Faso</div>
+  </div>
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>Bienvenue</h1>
+      <p>Connexion ou création de compte</p>
+    </div>
+    <div class="auth-body">
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchAuthTab('login',this)">Connexion</div>
+        <div class="auth-tab" onclick="switchAuthTab('register',this)">Créer un compte</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="auth-section active" id="authLogin">
+        <div class="fg"><label>Boutique / Identifiant</label>
+          <select id="loginShop" class="fi">
+            <option value="">— Sélectionner —</option>
+          </select>
+        </div>
+        <div class="fg"><label>Rôle</label>
+          <select id="loginRole" class="fi">
+            <option value="caissiere">🧑‍💼 Caissière</option>
+            <option value="gerant">👔 Gérant</option>
+            <option value="owner">🏪 Propriétaire</option>
+          </select>
+        </div>
+        <div class="pin-display">
+          <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+          <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+        </div>
+        <div class="pin-grid">
+          <div class="pin-btn" onclick="pinPress('1')">1</div><div class="pin-btn" onclick="pinPress('2')">2</div><div class="pin-btn" onclick="pinPress('3')">3</div>
+          <div class="pin-btn" onclick="pinPress('4')">4</div><div class="pin-btn" onclick="pinPress('5')">5</div><div class="pin-btn" onclick="pinPress('6')">6</div>
+          <div class="pin-btn" onclick="pinPress('7')">7</div><div class="pin-btn" onclick="pinPress('8')">8</div><div class="pin-btn" onclick="pinPress('9')">9</div>
+          <div class="pin-btn" style="background:var(--surf3)" onclick="pinClear()">✕</div>
+          <div class="pin-btn" onclick="pinPress('0')">0</div>
+          <div class="pin-btn" style="background:var(--wine-d);border-color:var(--wine)" onclick="pinLogin()">✓</div>
+        </div>
+        <p class="muted tc mt8" style="font-size:.7rem">Démo: caissière=<b>1234</b> gérant=<b>5678</b> owner=<b>9999</b></p>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="auth-section" id="authRegister">
+        <div class="fg"><label>Nom de la boutique</label><input id="regShopName" class="fi" placeholder="Ex: Cave du Roi Ouaga"/></div>
+        <div class="fg"><label>Votre nom</label><input id="regOwnerName" class="fi" placeholder="Ex: Konaté Ibrahim"/></div>
+        <div class="fg"><label>Téléphone / WhatsApp</label><input id="regPhone" class="fi" type="tel" placeholder="70 XX XX XX"/></div>
+        <div class="fg"><label>Ville</label>
+          <select id="regVille" class="fi">
+            <option>Ouagadougou</option><option>Bobo-Dioulasso</option><option>Koudougou</option><option>Banfora</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="fg"><label>Choisir un abonnement</label></div>
+        <div class="plans-grid" id="plansGrid"></div>
+        <div class="fg"><label>PIN propriétaire (4 chiffres)</label><input id="regPin" class="fi" type="password" inputmode="numeric" maxlength="4" placeholder="••••"/></div>
+        <button class="btn btn-gold btn-w" onclick="registerShop()">🚀 Créer ma cave — Essai 14 jours gratuit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP PRINCIPAL ════════════════════════════ -->
+<div id="app" style="display:none">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <span id="topShopName">🍷 Cave</span>
+      <span class="topbar-shop" id="topDate">—</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="plan-chip" id="planChip">—</span>
+      <span class="badge-role" id="roleBadge">—</span>
+      <div class="t-dot ok" id="fbDot" title="Firebase Sync"></div>
+      <div class="t-dot ble" id="bleDot" onclick="openModal('printerModal')" title="Imprimante BLE" style="cursor:pointer"></div>
+      <div class="t-btn" onclick="openNotifPanel()">🔔<span id="notifBubble" style="display:none;position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--err);border-radius:50%"></span></div>
+      <div class="t-btn" onclick="logout()">🚪</div>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: DASHBOARD ─── -->
+  <div class="page active" id="pageDash">
+    <div class="alert al-warn" id="caisseAlert" style="display:none">⚠️ Caisse non ouverte — Veuillez ouvrir la caisse</div>
+    <div id="trialBanner"></div>
+    <div class="kpi4">
+      <div class="kpi"><div class="kpi-lbl">Ventes du jour</div><div class="kpi-val g" id="kCA">0 F</div><div class="kpi-sub" id="kTx">0 tx</div></div>
+      <div class="kpi"><div class="kpi-lbl">Caisse espèces</div><div class="kpi-val ok" id="kCaisse">0 F</div><div class="kpi-sub">Fond + recettes</div></div>
+      <div class="kpi"><div class="kpi-lbl">Marge brute</div><div class="kpi-val g" id="kMarge">0 F</div><div class="kpi-sub" id="kPct">0%</div></div>
+      <div class="kpi"><div class="kpi-lbl">Dettes clients</div><div class="kpi-val err" id="kDettes">0 F</div><div class="kpi-sub" id="kNbDet">0 clients</div></div>
+    </div>
+    <div id="dashAlerts"></div>
+    <div class="card">
+      <div class="flex-b" style="margin-bottom:10px"><span class="sec-title" style="font-size:1rem">🏆 Top ventes</span><span class="muted" style="font-size:.7rem">Aujourd'hui</span></div>
+      <div id="topVentes"><p class="muted">Aucune vente</p></div>
+    </div>
+    <div class="card">
+      <div class="sec-title" style="font-size:1rem;margin-bottom:10px">⚡ Actions rapides</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <button class="btn btn-primary" onclick="goNav('pagePOS','navPOS')">🛒 Vente</button>
+        <button class="btn btn-outline" onclick="goNav('pageStock','navStock')">📦 Stock</button>
+        <button class="btn btn-outline" id="btnCaisse" onclick="openModal('caisseModal')">🔓 Ouvrir caisse</button>
+        <button class="btn btn-outline" onclick="goNav('pageClients','navCli')">👥 Clients</button>
+      </div>
+    </div>
+    <!-- Mini graphique 7 jours -->
+    <div class="card" id="cardGraph7" style="display:none">
+      <div class="flex-b" style="margin-bottom:10px"><span class="sec-title" style="font-size:1rem">📈 7 derniers jours</span></div>
+      <div id="graph7"></div>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: POS ─── -->
+  <div class="page" id="pagePOS">
+    <div class="sec-hdr">
+      <div class="sec-title">🛒 Caisse</div>
+      <div class="flex" style="gap:5px">
+        <button class="btn btn-outline btn-sm" onclick="applyDiscount()">% Rem.</button>
+        <button class="btn btn-outline btn-sm" onclick="clearCart()">Vider</button>
+      </div>
+    </div>
+    <div class="srch">
+      <input class="srch-in" id="searchProd" placeholder="🔍 Produit..." oninput="renderProds()"/>
+      <div class="btn-icon" onclick="showToast('📷 Connectez un lecteur USB/BT')">📷</div>
+    </div>
+    <div class="prod-grid" id="prodGrid"></div>
+    <div class="cart-sec">
+      <div class="cart-hdr"><span>🧾 Panier</span><span id="cartCount">0 article(s)</span></div>
+      <div class="cart-body" id="cartBody"><p class="muted tc" style="padding:12px">Panier vide</p></div>
+      <div class="cart-foot">
+        <div><div class="muted" style="font-size:.78rem">Total</div><div style="font-size:.7rem;color:var(--ok)" id="cartDisc"></div></div>
+        <div class="cart-total" id="cartTotal">0 F</div>
+      </div>
+      <button class="btn btn-primary mt8" onclick="openPayModal()">💳 Encaisser</button>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: STOCK ─── -->
+  <div class="page" id="pageStock">
+    <div class="sec-hdr">
+      <div class="sec-title">📦 Stock</div>
+      <div class="flex" style="gap:5px">
+        <button class="btn btn-outline btn-sm" id="btnEntree" onclick="openModal('entreeModal')">📥 Entrée</button>
+        <button class="btn btn-gold btn-sm" id="btnAddProd" onclick="openAddProd()">+ Produit</button>
+      </div>
+    </div>
+    <div class="tabs" id="stk-tabs">
+      <div class="tab active" onclick="filterStk('tous',this)">Tous</div>
+      <div class="tab" onclick="filterStk('vins',this)">🍷 Vins</div>
+      <div class="tab" onclick="filterStk('bieres',this)">🍺 Bières</div>
+      <div class="tab" onclick="filterStk('spiritueux',this)">🥃 Spirits</div>
+      <div class="tab" onclick="filterStk('alerte',this)">⚠️ Alertes</div>
+    </div>
+    <div class="card"><div id="stkList"></div></div>
+    <div class="card flex-b"><span class="muted">Valeur stock (prix achat)</span><span class="kpi-val g" id="stkVal">0 F</span></div>
+  </div>
+
+  <!-- ─── PAGE: HISTORIQUE ─── -->
+  <div class="page" id="pageHist">
+    <div class="sec-hdr">
+      <div class="sec-title">📋 Historique</div>
+      <button class="btn btn-outline btn-sm" onclick="exportWA('ventes')">📤 WA</button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="filterHist('j',this)">Aujourd'hui</div>
+      <div class="tab" onclick="filterHist('7',this)">7 jours</div>
+      <div class="tab" onclick="filterHist('30',this)">30 jours</div>
+    </div>
+    <div class="kpi3" id="histKpis"></div>
+    <div id="histList"></div>
+  </div>
+
+  <!-- ─── PAGE: CLIENTS ─── -->
+  <div class="page" id="pageClients">
+    <div class="sec-hdr">
+      <div class="sec-title">👥 Clients</div>
+      <button class="btn btn-gold btn-sm" onclick="openModal('addCliModal')">+ Client</button>
+    </div>
+    <div class="srch"><input class="srch-in" id="searchCli" placeholder="🔍 Client..." oninput="renderClients()"/></div>
+    <div id="cliList"></div>
+  </div>
+
+  <!-- ─── PAGE: RAPPORTS (gérant+owner) ─── -->
+  <div class="page" id="pageRapports">
+    <div class="sec-hdr">
+      <div class="sec-title">📊 Rapports</div>
+      <button class="btn btn-outline btn-sm" onclick="exportWA('rapport')">📤 WA</button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="filterRpt('j',this)">Aujourd'hui</div>
+      <div class="tab" onclick="filterRpt('7',this)">Semaine</div>
+      <div class="tab" onclick="filterRpt('30',this)">Mois</div>
+    </div>
+    <div id="rptContent"></div>
+    <!-- Entrées fournisseurs -->
+    <div class="sec-title" style="margin:14px 0 8px;font-size:1rem">📥 Entrées fournisseurs</div>
+    <div id="entreesLog"></div>
+    <!-- Audit -->
+    <div class="sec-title" style="margin:14px 0 8px;font-size:1rem">🔍 Journal d'audit</div>
+    <div class="card"><div id="auditLog"></div></div>
+  </div>
+
+  <!-- ─── PAGE: OWNER PANEL ─── -->
+  <div class="page" id="pageOwner">
+    <div class="sec-hdr">
+      <div class="sec-title">🏪 Mon espace</div>
+      <span class="plan-chip" id="ownerPlanChip">—</span>
+    </div>
+    <div id="ownerContent"></div>
+  </div>
+
+  <!-- ─── PAGE: SUPER ADMIN ─── -->
+  <div class="page" id="pageSA">
+    <div class="sec-hdr">
+      <div class="sec-title" style="color:var(--purple)">🛡️ Super Admin</div>
+      <span style="font-size:.7rem;color:var(--muted)">CaveManager Pro SaaS</span>
+    </div>
+    <div id="saContent"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottomnav" id="bottomNav">
+    <div class="nav-item active" id="navDash" onclick="goNav('pageDash','navDash')"><div class="nav-icon">🏠</div><span>Accueil</span></div>
+    <div class="nav-item" id="navPOS" onclick="goNav('pagePOS','navPOS')"><div class="nav-icon">🛒</div><span>Caisse</span></div>
+    <div class="nav-item" id="navStock" onclick="goNav('pageStock','navStock')"><div class="nav-icon">📦</div><span>Stock</span></div>
+    <div class="nav-item" id="navCli" onclick="goNav('pageClients','navCli')"><div class="nav-icon">👥</div><span>Clients</span></div>
+    <div class="nav-item" id="navExtra" onclick="goNav('pageRapports','navExtra')"><div class="nav-icon">📊</div><span id="navExtraLbl">Rapports</span></div>
+  </div>
+</div>
+
+<!-- ═══ MODALS ════════════════════════════════════ -->
+
+<!-- PAYMENT -->
+<div class="modal-ov" id="payModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">💳 Encaissement</div>
+  <div class="flex-b" style="margin-bottom:4px"><span class="muted">Montant dû</span><span style="font-size:1.3rem;font-weight:700;color:var(--gold)" id="payDue">0 F</span></div>
+  <div class="pay-methods">
+    <div class="pay-m sel" onclick="selPay('especes',this)"><span class="pi">💵</span>Espèces</div>
+    <div class="pay-m" onclick="selPay('mobile',this)"><span class="pi">📱</span>Mobile Money</div>
+    <div class="pay-m" onclick="selPay('credit',this)"><span class="pi">📝</span>Crédit</div>
+  </div>
+  <div id="zoneEsp">
+    <label style="font-size:.74rem;color:var(--muted);letter-spacing:.8px;text-transform:uppercase">MONTANT REÇU (F CFA)</label>
+    <input id="amtRecv" type="number" inputmode="numeric" style="font-size:1.7rem;text-align:center;font-weight:700;color:var(--gold);background:var(--surf2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin:7px 0;display:block;width:100%;outline:none;font-family:'DM Sans',sans-serif" oninput="calcMonnaie()"/>
+    <div id="monnaieDiv" style="padding:8px 12px;border-radius:var(--rs);text-align:center;font-size:.86rem;margin-bottom:4px"></div>
+  </div>
+  <div id="zoneMob" style="display:none">
+    <div class="alert al-info">📱 Vérifiez la confirmation Orange/Moov Money avant de valider.</div>
+    <div class="fg mt8"><label>Réf. transaction (optionnel)</label><input id="mobRef" class="fi" placeholder="OM-123456"/></div>
+  </div>
+  <div id="zoneCred" style="display:none">
+    <div class="fg"><label>Client</label><select id="credCli" class="fi"></select></div>
+    <div id="credInfo" class="muted" style="font-size:.76rem;margin-top:4px"></div>
+  </div>
+  <div class="modal-2btns">
+    <button id="payCancel" class="btn btn-outline" onclick="closeModal('payModal')">Annuler</button>
+    <button id="payConfirm" class="btn btn-primary" onclick="confirmerVente()">✓ Valider</button>
+  </div>
+  <button id="btnPrintTicket" class="print-btn" style="width:100%;margin-top:8px;justify-content:center;display:none" onclick="printLastTicket()">🖨️ Imprimer le ticket</button>
+</div>
+</div>
+
+<!-- CAISSE -->
+<div class="modal-ov" id="caisseModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="caisseMTitle">🔓 Ouverture de caisse</div>
+  <p class="muted" id="caisseMDesc" style="margin-bottom:12px">Entrez le fond de caisse de départ</p>
+  <div id="caisseEcartInfo"></div>
+  <div class="fg"><label>Montant (F CFA)</label><input id="fondCaisse" class="fi" type="number" placeholder="50 000"/></div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('caisseModal')">Annuler</button>
+    <button id="caisseMBtn" class="btn btn-primary" onclick="validerCaisse()">✓ Ouvrir</button>
+  </div>
+</div>
+</div>
+
+<!-- ADD/EDIT PRODUIT -->
+<div class="modal-ov" id="prodModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="prodMTitle">📦 Nouveau produit</div>
+  <input type="hidden" id="editProdId"/>
+  <div class="fg"><label>Nom</label><input id="pNom" class="fi" placeholder="Ex: Château Margaux 2019"/></div>
+  <div class="fi-row">
+    <div class="fg"><label>Catégorie</label><select id="pCat" class="fi"><option value="vins">🍷 Vins</option><option value="bieres">🍺 Bières</option><option value="spiritueux">🥃 Spiritueux</option><option value="autres">📦 Autres</option></select></div>
+    <div class="fg"><label>Unité</label><select id="pUnite" class="fi"><option value="bouteille">Bouteille</option><option value="carton">Carton</option><option value="verre">Verre</option><option value="pièce">Pièce</option></select></div>
+  </div>
+  <div class="fi-row">
+    <div class="fg"><label>Prix vente (F)</label><input id="pPrix" class="fi" type="number" placeholder="8500"/></div>
+    <div class="fg"><label>Prix achat (F)</label><input id="pAchat" class="fi" type="number" placeholder="5500"/></div>
+  </div>
+  <div class="fi-row">
+    <div class="fg"><label>Stock</label><input id="pStock" class="fi" type="number" placeholder="24"/></div>
+    <div class="fg"><label>Seuil alerte</label><input id="pSeuil" class="fi" type="number" placeholder="5"/></div>
+  </div>
+  <div class="fg"><label>Code-barres (optionnel)</label><input id="pBarcode" class="fi" placeholder="6901234567890"/></div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('prodModal')">Annuler</button>
+    <button class="btn btn-primary" onclick="saveProd()">✓ Enregistrer</button>
+  </div>
+</div>
+</div>
+
+<!-- ENTRÉE FOURNISSEUR -->
+<div class="modal-ov" id="entreeModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">📥 Entrée fournisseur</div>
+  <div class="fg"><label>Produit</label><select id="eProd" class="fi"></select></div>
+  <div class="fi-row">
+    <div class="fg"><label>Quantité reçue</label><input id="eQty" class="fi" type="number" placeholder="12"/></div>
+    <div class="fg"><label>Prix achat unit. (F)</label><input id="eAchat" class="fi" type="number"/></div>
+  </div>
+  <div class="fg"><label>Fournisseur</label><input id="eFourn" class="fi" placeholder="Ex: CFAO, Brakina..."/></div>
+  <div class="fg"><label>N° BL / Facture</label><input id="eBL" class="fi" placeholder="BL-2024-001"/></div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('entreeModal')">Annuler</button>
+    <button class="btn btn-primary" onclick="saveEntree()">✓ Valider</button>
+  </div>
+</div>
+</div>
+
+<!-- ADD CLIENT -->
+<div class="modal-ov" id="addCliModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">👤 Nouveau client</div>
+  <div class="fg"><label>Nom complet</label><input id="cNom" class="fi" placeholder="Ex: Konaté Ibrahim"/></div>
+  <div class="fi-row">
+    <div class="fg"><label>Téléphone</label><input id="cTel" class="fi" type="tel" placeholder="70 XX XX XX"/></div>
+    <div class="fg"><label>Plafond crédit (F)</label><input id="cPlafond" class="fi" type="number" placeholder="50000"/></div>
+  </div>
+  <div class="fg"><label>Adresse / Quartier (optionnel)</label><input id="cAddr" class="fi" placeholder="Secteur 15, Ouaga"/></div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('addCliModal')">Annuler</button>
+    <button class="btn btn-primary" onclick="saveCli()">✓ Enregistrer</button>
+  </div>
+</div>
+</div>
+
+<!-- REMISE -->
+<div class="modal-ov" id="remiseModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">% Remise panier</div>
+  <div class="fi-row">
+    <div class="fg"><label>Remise (%)</label><input id="remPct" class="fi" type="number" placeholder="10" min="0" max="50"/></div>
+    <div class="fg"><label>Montant fixe (F)</label><input id="remMont" class="fi" type="number" placeholder="0"/></div>
+  </div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('remiseModal')">Annuler</button>
+    <button class="btn btn-primary" onclick="validerRemise()">✓ Appliquer</button>
+  </div>
+</div>
+</div>
+
+<!-- CLIENT DETAIL -->
+<div class="modal-ov" id="cliDetailModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="cliDetailTitle">👤 Client</div>
+  <div id="cliDetailContent"></div>
+  <button class="btn btn-outline btn-w mt12" onclick="closeModal('cliDetailModal')">Fermer</button>
+</div>
+</div>
+
+<!-- SUBSCRIPTION UPGRADE -->
+<div class="modal-ov" id="upgradeModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">⭐ Passer en Premium</div>
+  <p class="muted" style="margin-bottom:14px" id="upgradeReason">Cette fonctionnalité nécessite un abonnement supérieur.</p>
+  <div id="upgradePlans"></div>
+  <div class="alert al-info mt8">📱 Pour souscrire, contactez-nous sur WhatsApp ou paiement Mobile Money.</div>
+  <button class="btn btn-gold btn-w mt8" onclick="contactUpgrade()">📲 Contacter pour souscrire</button>
+  <button class="btn btn-outline btn-w mt8" onclick="closeModal('upgradeModal')">Plus tard</button>
+</div>
+</div>
+
+<!-- NOTIFICATION PANEL -->
+<div class="modal-ov" id="notifModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">🔔 Notifications</div>
+  <div id="notifList"></div>
+  <button class="btn btn-outline btn-w mt12" onclick="closeModal('notifModal');clearNotifs()">Tout marquer lu</button>
+</div>
+</div>
+
+<!-- PRINTER MODAL -->
+<div class="modal-ov" id="printerModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">🖨️ Imprimante thermique</div>
+  <div class="ble-status-bar">
+    <div class="t-dot ble" id="bleDotM" style="width:10px;height:10px"></div>
+    <div style="flex:1">
+      <div style="font-size:.83rem;font-weight:600" id="bleStatusLbl">Non connectée</div>
+      <div style="font-size:.7rem;color:var(--muted)">POS-80C · 80mm · ESC/POS · BLE</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <button class="print-btn" id="btnBleConn" onclick="bleConnect()" style="justify-content:center">📡 Connecter</button>
+    <button class="print-btn" id="btnBleDisc" onclick="bleDisconnect()" style="display:none;justify-content:center;background:rgba(231,76,60,.15);border-color:rgba(231,76,60,.4);color:#FF8080">✕ Déconnecter</button>
+    <button class="print-btn" id="btnBleTest" onclick="bleTest()" disabled style="justify-content:center">🧪 Test</button>
+    <button class="print-btn" id="btnBleRpt" onclick="bleRapport()" disabled style="justify-content:center">📊 Rapport</button>
+  </div>
+  <div class="fg"><label>En-tête ticket</label><input id="pHeader" class="fi" placeholder="CAVE À VIN OUAGADOUGOU" maxlength="32"/></div>
+  <div class="fg"><label>Pied de page</label><input id="pFooter" class="fi" placeholder="Merci de votre visite!" maxlength="32"/></div>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.83rem;color:var(--muted);margin-bottom:12px">
+    <input type="checkbox" id="autoprint" style="width:15px;height:15px;accent-color:var(--gold)"/>
+    Impression automatique après chaque vente
+  </label>
+  <div id="ticketPrevZone" style="display:none">
+    <div class="muted" style="font-size:.75rem;margin-bottom:5px">Aperçu :</div>
+    <div class="ticket-prev" id="ticketPrev"></div>
+  </div>
+  <button class="btn btn-outline btn-w mt8" onclick="savePrinterConf();closeModal('printerModal')">✓ Enregistrer & Fermer</button>
+</div>
+</div>
+
+<!-- OWNER: GESTION EMPLOYÉS -->
+<div class="modal-ov" id="empModal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="empMTitle">👤 Ajouter un employé</div>
+  <input type="hidden" id="editEmpId"/>
+  <div class="fg"><label>Nom complet</label><input id="empNom" class="fi" placeholder="Ex: Traoré Aminata"/></div>
+  <div class="fg"><label>Rôle</label>
+    <select id="empRole" class="fi">
+      <option value="caissiere">🧑‍💼 Caissière</option>
+      <option value="gerant">👔 Gérant</option>
+    </select>
+  </div>
+  <div class="fg"><label>PIN (4 chiffres)</label><input id="empPin" class="fi" type="password" inputmode="numeric" maxlength="4" placeholder="••••"/></div>
+  <div class="fg"><label>Téléphone (optionnel)</label><input id="empTel" class="fi" type="tel" placeholder="70 XX XX XX"/></div>
+  <div class="modal-2btns">
+    <button class="btn btn-outline" onclick="closeModal('empModal')">Annuler</button>
+    <button class="btn btn-primary" onclick="saveEmp()">✓ Enregistrer</button>
+  </div>
+</div>
+</div>
+
+<!-- SA PIN MODAL (caché, déclenché par triple-clic) -->
+<div class="modal-ov" id="saPinModal">
+<div class="modal" style="max-width:320px">
+  <div class="modal-handle"></div>
+  <div style="text-align:center;margin-bottom:16px">
+    <div style="font-size:2rem;margin-bottom:6px">🔑</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--purple)">Accès administrateur</div>
+  </div>
+  <div class="pin-display" id="saPinDisplay">
+    <div class="pin-dot" id="sa0"></div><div class="pin-dot" id="sa1"></div>
+    <div class="pin-dot" id="sa2"></div><div class="pin-dot" id="sa3"></div>
+    <div class="pin-dot" id="sa4"></div><div class="pin-dot" id="sa5"></div>
+  </div>
+  <div class="pin-grid">
+    <div class="pin-btn" onclick="saPin('1')">1</div><div class="pin-btn" onclick="saPin('2')">2</div><div class="pin-btn" onclick="saPin('3')">3</div>
+    <div class="pin-btn" onclick="saPin('4')">4</div><div class="pin-btn" onclick="saPin('5')">5</div><div class="pin-btn" onclick="saPin('6')">6</div>
+    <div class="pin-btn" onclick="saPin('7')">7</div><div class="pin-btn" onclick="saPin('8')">8</div><div class="pin-btn" onclick="saPin('9')">9</div>
+    <div class="pin-btn" style="background:var(--surf3)" onclick="saPinClear()">✕</div>
+    <div class="pin-btn" onclick="saPin('0')">0</div>
+    <div class="pin-btn" style="background:rgba(168,85,247,.3);border-color:var(--purple)" onclick="saPinConfirm()">✓</div>
+  </div>
+  <button class="btn btn-outline btn-w btn-sm mt8" onclick="closeModal('saPinModal');resetSaPin()">Annuler</button>
+</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// PLANS & CONFIG SAAS
+// ════════════════════════════════════════════════════════
+const PLANS = {
+  starter:{id:'starter',name:'Starter',price:9900,label:'9 900 F/mois',color:'var(--plan-starter)',
+    features:['1 caissière','Caisse & ventes','Stock basique','Historique 30j','WhatsApp rapport'],
+    limits:{employes:2,produits:50,clients:30,historique:30,rapport:false,audit:false,multiShop:false,api:false}},
+  pro:{id:'pro',name:'Pro',price:24900,label:'24 900 F/mois',color:'var(--plan-pro)',
+    features:['5 employés','Rapports avancés','Gestion crédits','Audit complet','Export Excel/WA','Impression BLE'],
+    limits:{employes:5,produits:300,clients:200,historique:365,rapport:true,audit:true,multiShop:false,api:false}},
+  enterprise:{id:'enterprise',name:'Enterprise',price:59900,label:'59 900 F/mois',color:'var(--plan-enterprise)',
+    features:['Illimité','Multi-boutiques','API access','Support WhatsApp','Tableau de bord owner','Toutes fonctions'],
+    limits:{employes:999,produits:9999,clients:9999,historique:9999,rapport:true,audit:true,multiShop:true,api:true}},
+};
+
+const DEV_PIN = '761278';
+
+// ════════════════════════════════════════════════════════
+// STORAGE multi-tenant
+// ════════════════════════════════════════════════════════
+const ls = {
+  get:(k,d)=>{ try{ const v=localStorage.getItem(k); return v!==null?JSON.parse(v):d; }catch{return d;} },
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
+  rm:(k)=>localStorage.removeItem(k),
+};
+
+// Préfixe tenant : cave_{shopId}_{key}
+function sk(key){ return `cave_${STATE.shopId||'demo'}_${key}`; }
+const DB = {
+  get:(k,d=[])=>ls.get(sk(k),d),
+  set:(k,v)=>ls.set(sk(k),v),
+};
+
+function getProds()    { return DB.get('prods', defaultProds()); }
+function getSales()    { return DB.get('sales', []); }
+function getClients()  { return DB.get('clients', []); }
+function getAudit()    { return DB.get('audit', []); }
+function getEntrees()  { return DB.get('entrees', []); }
+function getEmps()     { return DB.get('emps', defaultEmps()); }
+function getNotifs()   { return DB.get('notifs', []); }
+function getCaisseS()  { return DB.get('caisse', {ouverte:false,fond:0}); }
+function getShopCfg()  { return DB.get('cfg', {}); }
+
+function saveProds(v)   { DB.set('prods',v); }
+function saveSales(v)   { DB.set('sales',v); }
+function saveClients(v) { DB.set('clients',v); }
+function saveEntrees(v) { DB.set('entrees',v); }
+function saveEmps(v)    { DB.set('emps',v); }
+function saveCaisseS(v) { DB.set('caisse',v); }
+function saveShopCfg(v) { DB.set('cfg',v); }
+
+function addAudit(action,detail='',tag=''){
+  const logs=getAudit();
+  logs.unshift({id:Date.now(),ts:new Date().toISOString(),user:STATE.user,role:STATE.role,action,detail,tag});
+  if(logs.length>500) logs.splice(500);
+  DB.set('audit',logs);
+}
+
+function addNotif(msg,type='info'){
+  const notifs=getNotifs();
+  notifs.unshift({id:Date.now(),msg,type,read:false,ts:new Date().toISOString()});
+  if(notifs.length>50) notifs.splice(50);
+  DB.set('notifs',notifs);
+  updateNotifBubble();
+}
+
+// ════════════════════════════════════════════════════════
+// STATE GLOBAL
+// ════════════════════════════════════════════════════════
+const STATE = {
+  shopId:null, shopName:'', plan:'pro',
+  user:null, role:null,
+  caisseOuverte:false, fondCaisse:0,
+  cart:[], discount:0,
+  payMethod:'especes',
+  stkFilter:'tous', histFilter:'j', rptFilter:'j',
+  lastSale:null,
+};
+
+let pinBuffer = '';
+
+// ════════════════════════════════════════════════════════
+// DONNÉES PAR DÉFAUT
+// ════════════════════════════════════════════════════════
+function defaultProds(){
+  return [
+    {id:1,nom:'Château Margaux 2019',cat:'vins',unite:'bouteille',prix:18000,achat:12000,stock:12,seuil:3,emoji:'🍷',barcode:''},
+    {id:2,nom:'Bordeaux Rouge AOP',cat:'vins',unite:'bouteille',prix:8500,achat:5500,stock:24,seuil:6,emoji:'🍷',barcode:''},
+    {id:3,nom:'Rosé de Provence',cat:'vins',unite:'bouteille',prix:7500,achat:5000,stock:18,seuil:4,emoji:'🍾',barcode:''},
+    {id:4,nom:'Chardonnay Blanc',cat:'vins',unite:'bouteille',prix:9000,achat:6000,stock:2,seuil:5,emoji:'🥂',barcode:''},
+    {id:5,nom:'Champagne Moët',cat:'vins',unite:'bouteille',prix:45000,achat:32000,stock:5,seuil:1,emoji:'🍾',barcode:''},
+    {id:6,nom:'Heineken 33cl',cat:'bieres',unite:'bouteille',prix:800,achat:500,stock:120,seuil:24,emoji:'🍺',barcode:''},
+    {id:7,nom:'Flag Spéciale',cat:'bieres',unite:'bouteille',prix:700,achat:450,stock:96,seuil:24,emoji:'🍺',barcode:''},
+    {id:8,nom:'Brakina Lager',cat:'bieres',unite:'bouteille',prix:650,achat:400,stock:60,seuil:12,emoji:'🍺',barcode:''},
+    {id:9,nom:'Pastis Ricard',cat:'spiritueux',unite:'bouteille',prix:12000,achat:8500,stock:6,seuil:2,emoji:'🥃',barcode:''},
+    {id:10,nom:'Whisky J&B 70cl',cat:'spiritueux',unite:'bouteille',prix:22000,achat:15000,stock:4,seuil:2,emoji:'🥃',barcode:''},
+    {id:11,nom:"Gin Gordon's",cat:'spiritueux',unite:'bouteille',prix:15000,achat:10500,stock:0,seuil:2,emoji:'🥃',barcode:''},
+    {id:12,nom:'Rhum Négrita',cat:'spiritueux',unite:'bouteille',prix:9500,achat:6500,stock:8,seuil:2,emoji:'🥃',barcode:''},
+  ];
+}
+function defaultEmps(){
+  return [
+    {id:1,nom:'Caissière Démo',role:'caissiere',pin:'1234',tel:'',actif:true},
+    {id:2,nom:'Gérant Démo',role:'gerant',pin:'5678',tel:'',actif:true},
+  ];
+}
+
+// ════════════════════════════════════════════════════════
+// SAAS: SHOPS (multi-tenant localStorage)
+// ════════════════════════════════════════════════════════
+function getAllShops(){ return ls.get('cavemanager_shops',[]); }
+function saveAllShops(s){ ls.set('cavemanager_shops',s); }
+
+function getShop(id){ return getAllShops().find(s=>s.id===id)||null; }
+
+function initDemoShop(){
+  let shops=getAllShops();
+  if(!shops.find(s=>s.id==='demo')){
+    shops.push({
+      id:'demo',name:'Cave Démo Ouaga',owner:'Propriétaire Démo',
+      phone:'70000000',ville:'Ouagadougou',
+      plan:'pro',ownerPin:'9999',
+      createdAt:new Date().toISOString(),
+      trialEnd:new Date(Date.now()+14*864e5).toISOString(),
+      status:'trial',
+    });
+    saveAllShops(shops);
+  }
+}
+
+function populateLoginShops(){
+  const shops=getAllShops();
+  const sel=document.getElementById('loginShop');
+  sel.innerHTML='<option value="">— Sélectionner —</option>';
+  shops.forEach(s=>sel.innerHTML+=`<option value="${s.id}">${s.name} (${s.ville})</option>`);
+}
+
+// ════════════════════════════════════════════════════════
+// AUTH / PIN
+// ════════════════════════════════════════════════════════
+function switchAuthTab(tab,el){
+  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.auth-section').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('auth'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+function pinPress(d){
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=d; updatePinDots();
+  if(pinBuffer.length===4) setTimeout(pinLogin,220);
+}
+function pinClear(){ pinBuffer=''; updatePinDots(); }
+function updatePinDots(err=false){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('d'+i);
+    d.className='pin-dot'+(i<pinBuffer.length?' filled':'')+(err?' error':'');
+  }
+}
+
+function pinLogin(){
+  const shopId=document.getElementById('loginShop').value;
+  if(!shopId){showToast('⚠️ Sélectionnez une boutique');pinBuffer='';updatePinDots();return;}
+  const shop=getShop(shopId);
+  if(!shop){showToast('❌ Boutique introuvable');pinBuffer='';updatePinDots();return;}
+
+  const role=document.getElementById('loginRole').value;
+  let ok=false, userName='';
+
+  if(role==='owner'){
+    ok=(pinBuffer===shop.ownerPin);
+    userName=shop.owner;
+  } else {
+    const emps=ls.get(sk2(shopId,'emps'), defaultEmps());
+    const emp=emps.find(e=>e.role===role&&e.pin===pinBuffer&&e.actif);
+    if(emp){ok=true;userName=emp.nom;}
+  }
+
+  if(!ok){
+    updatePinDots(true);
+    showToast('❌ PIN incorrect');
+    setTimeout(()=>{pinBuffer='';updatePinDots();},600);
+    return;
+  }
+  startApp(shopId,shop,role,userName);
+}
+
+function sk2(shopId,key){ return `cave_${shopId}_${key}`; }
+
+function loginSuperAdmin(){
+  const pin=prompt('PIN Super Admin:');
+  if(pin===DEV_PIN){
+    STATE.role='superadmin';STATE.user='Super Admin';STATE.shopId='_sa';STATE.shopName='CaveManager Pro';STATE.plan='enterprise';
+    launchApp();
+    goNav('pageSA','');
+    renderSuperAdmin();
+  } else {
+    showToast('❌ PIN incorrect');
+  }
+}
+
+function startApp(shopId,shop,role,userName){
+  STATE.shopId=shopId; STATE.shopName=shop.name; STATE.plan=shop.plan||'pro';
+  STATE.role=role; STATE.user=userName;
+  // Caisse
+  const cs=getCaisseS();
+  if(cs.ouverte){STATE.caisseOuverte=true;STATE.fondCaisse=cs.fond;}
+  addAudit('Connexion','Rôle: '+role,'');
+  launchApp();
+  checkSubscription(shop);
+}
+
+function launchApp(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  // Topbar
+  document.getElementById('topShopName').textContent='🍷 '+STATE.shopName;
+  document.getElementById('topDate').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+  document.getElementById('roleBadge').textContent=STATE.user;
+  document.getElementById('roleBadge').className='badge-role role-'+STATE.role;
+  const pc=document.getElementById('planChip');
+  pc.textContent=STATE.plan.toUpperCase();
+  pc.className='plan-chip chip-'+STATE.plan;
+  // Nav selon rôle
+  setupNav();
+  updateCaisseUI();
+  renderAll();
+  simulateFB();
+  checkAlertBadge();
+  updateNotifBubble();
+  // Printer settings
+  loadPrinterConf();
+}
+
+function checkSubscription(shop){
+  if(!shop) return;
+  const trialEnd=new Date(shop.trialEnd||0);
+  const now=new Date();
+  const banner=document.getElementById('trialBanner');
+  if(shop.status==='trial'){
+    const days=Math.max(0,Math.ceil((trialEnd-now)/864e5));
+    banner.innerHTML=`<div class="alert al-pur">🎁 Période d'essai — <strong>${days} jour(s)</strong> restant(s) · <span style="cursor:pointer;text-decoration:underline" onclick="openModal('upgradeModal')">Souscrire</span></div>`;
+    if(days<=3) addNotif(`⚠️ Essai expire dans ${days}j — Souscrivez maintenant!`,'warn');
+  } else if(shop.status==='expired'){
+    banner.innerHTML=`<div class="alert al-err">🔒 Abonnement expiré — Fonctions limitées · <span style="cursor:pointer;text-decoration:underline" onclick="openModal('upgradeModal')">Renouveler</span></div>`;
+  } else { banner.innerHTML=''; }
+  // Contenu upgrade modal
+  renderUpgradePlans();
+}
+
+function setupNav(){
+  const navExtra=document.getElementById('navExtra');
+  const navExtraLbl=document.getElementById('navExtraLbl');
+  if(STATE.role==='caissiere'){
+    navExtra.onclick=()=>goNav('pageHist','navExtra');
+    navExtra.querySelector('.nav-icon').textContent='📋';
+    navExtraLbl.textContent='Historique';
+    document.getElementById('btnAddProd').style.display='none';
+    document.getElementById('btnEntree').style.display='none';
+  } else if(STATE.role==='gerant'){
+    navExtra.onclick=()=>goNav('pageRapports','navExtra');
+    navExtra.querySelector('.nav-icon').textContent='📊';
+    navExtraLbl.textContent='Rapports';
+  } else if(STATE.role==='owner'||STATE.role==='superadmin'){
+    navExtra.onclick=()=>goNav('pageOwner','navExtra');
+    navExtra.querySelector('.nav-icon').textContent='🏪';
+    navExtraLbl.textContent=STATE.role==='superadmin'?'SA':'Owner';
+  }
+}
+
+function logout(){
+  stopListeners();
+  Object.assign(STATE,{shopId:null,shopName:'',plan:'pro',user:null,role:null,caisseOuverte:false,fondCaisse:0,cart:[],discount:0,lastSale:null});
+  pinBuffer='';
+  document.getElementById('app').style.display='none';
+  populateLoginShops();
+  updatePinDots();
+  document.getElementById('authScreen').style.display='flex';
+}
+
+// ════════════════════════════════════════════════════════
+// GUARD: PLAN
+// ════════════════════════════════════════════════════════
+function requirePlan(feature,minPlan='pro'){
+  const order=['starter','pro','enterprise'];
+  const curr=order.indexOf(STATE.plan);
+  const need=order.indexOf(minPlan);
+  if(curr<need){
+    document.getElementById('upgradeReason').textContent=`"${feature}" est disponible à partir du plan ${minPlan.toUpperCase()}.`;
+    openModal('upgradeModal');
+    return false;
+  }
+  return true;
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════════════════════
+function renderAll(){
+  renderDash();
+  renderProds();
+  renderStock();
+  renderHist();
+  renderClients();
+  if(STATE.role!=='caissiere') renderRapport();
+  if(STATE.role==='owner') renderOwner();
+  if(STATE.role==='superadmin') renderSuperAdmin();
+  renderAudit();
+}
+
+// ════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════
+function renderDash(){
+  const sales=getSales(), today=new Date().toDateString();
+  const tday=sales.filter(s=>new Date(s.ts).toDateString()===today);
+  const ca=tday.reduce((a,s)=>a+s.total,0);
+  const prods=getProds();
+  let achat=0; tday.forEach(s=>s.items.forEach(i=>{const p=prods.find(x=>x.id===i.id);if(p)achat+=p.achat*i.qty;}));
+  const marge=ca-achat;
+  const clients=getClients();
+  const dettes=clients.reduce((a,c)=>a+(c.dette||0),0);
+  const detteurs=clients.filter(c=>c.dette>0);
+  const alertes=prods.filter(p=>p.stock<=p.seuil);
+  const espJour=tday.filter(s=>s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+  const caisse=STATE.fondCaisse+espJour;
+
+  document.getElementById('kCA').textContent=fmtF(ca);
+  document.getElementById('kTx').textContent=tday.length+' transaction(s)';
+  document.getElementById('kCaisse').textContent=fmtF(caisse);
+  document.getElementById('kMarge').textContent=fmtF(marge);
+  document.getElementById('kPct').textContent=ca>0?Math.round(marge/ca*100)+'% marge':'—';
+  document.getElementById('kDettes').textContent=fmtF(dettes);
+  document.getElementById('kNbDet').textContent=detteurs.length+' client(s)';
+
+  // Alertes
+  const az=document.getElementById('dashAlerts'); az.innerHTML='';
+  if(!STATE.caisseOuverte) az.innerHTML+=`<div class="alert al-warn">⚠️ Caisse non ouverte</div>`;
+  alertes.slice(0,2).forEach(p=>az.innerHTML+=`<div class="alert al-err">🚨 Stock critique: <b>${p.nom}</b> — ${p.stock} restant(s)</div>`);
+  if(detteurs.length) az.innerHTML+=`<div class="alert al-warn">💳 ${detteurs.length} client(s) en crédit — ${fmtF(dettes)}</div>`;
+
+  // Top ventes
+  const topMap={};
+  tday.forEach(s=>s.items.forEach(i=>topMap[i.nom]=(topMap[i.nom]||0)+i.qty));
+  const top=Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const tv=document.getElementById('topVentes');
+  if(!top.length){tv.innerHTML='<p class="muted">Aucune vente aujourd\'hui</p>';return;}
+  const mx=top[0][1];
+  tv.innerHTML=top.map(([nom,qty],i)=>`
+    <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <div class="flex-b" style="margin-bottom:3px"><span style="font-size:.81rem">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${nom}</span><span style="color:var(--gold);font-weight:700;font-size:.8rem">${qty}</span></div>
+      <div class="stk-bar"><div class="stk-fill" style="width:${Math.round(qty/mx*100)}%;background:linear-gradient(90deg,var(--wine),var(--gold))"></div></div>
+    </div>`).join('');
+
+  // Graph 7j si plan pro+
+  if(PLANS[STATE.plan]?.limits?.rapport){
+    renderGraph7();
+    document.getElementById('cardGraph7').style.display='block';
+  }
+}
+
+function renderGraph7(){
+  const sales=getSales();
+  const days=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const label=d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'});
+    const ca=sales.filter(s=>new Date(s.ts).toDateString()===d.toDateString()).reduce((a,s)=>a+s.total,0);
+    days.push({label,ca});
+  }
+  const max=Math.max(...days.map(d=>d.ca),1);
+  document.getElementById('graph7').innerHTML=days.map(d=>`
+    <div class="bar-row">
+      <div class="bar-lbl">${d.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.ca/max*100)}%;background:linear-gradient(90deg,var(--wine-d),var(--gold))"></div></div>
+      <div class="bar-val">${d.ca>0?fmtF(d.ca):'—'}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// POS
+// ════════════════════════════════════════════════════════
+function renderProds(){
+  const q=(document.getElementById('searchProd')?.value||'').toLowerCase();
+  const prods=getProds().filter(p=>!q||p.nom.toLowerCase().includes(q)||p.barcode===q);
+  const g=document.getElementById('prodGrid'); if(!g) return;
+  g.innerHTML=prods.map(p=>{
+    const oos=p.stock===0,low=p.stock>0&&p.stock<=p.seuil;
+    const badge=oos?'<span class="pbadge pbadge-out">Épuisé</span>':low?'<span class="pbadge pbadge-low">Faible</span>':'';
+    return `<div class="prod-card${oos?' oos':''}" onclick="addToCart(${p.id})">
+      ${badge}<div class="prod-emoji">${p.emoji||'📦'}</div>
+      <div class="prod-name">${p.nom}</div>
+      <div class="prod-price">${fmtF(p.prix)}</div>
+      <div class="prod-stock">Stock: ${p.stock}</div>
+    </div>`;
+  }).join('')||'<p class="muted tc" style="padding:20px;grid-column:1/-1">Aucun produit</p>';
+}
+
+function addToCart(id){
+  const p=getProds().find(x=>x.id===id); if(!p) return;
+  const ex=STATE.cart.find(x=>x.id===id);
+  if(ex){if(ex.qty>=p.stock){showToast('⚠️ Stock insuffisant');return;}ex.qty++;}
+  else STATE.cart.push({id:p.id,nom:p.nom,prix:p.prix,qty:1,stock:p.stock});
+  renderCart();
+}
+function updCartQty(id,d){
+  const i=STATE.cart.findIndex(x=>x.id===id); if(i<0) return;
+  STATE.cart[i].qty=Math.max(0,STATE.cart[i].qty+d);
+  if(!STATE.cart[i].qty) STATE.cart.splice(i,1);
+  renderCart();
+}
+function renderCart(){
+  const b=document.getElementById('cartBody'),tEl=document.getElementById('cartTotal'),cEl=document.getElementById('cartCount'),dEl=document.getElementById('cartDisc');
+  if(!b) return;
+  if(!STATE.cart.length){b.innerHTML='<p class="muted tc" style="padding:12px">Panier vide</p>';tEl.textContent='0 F';cEl.textContent='0 article(s)';dEl.textContent='';return;}
+  const sub=STATE.cart.reduce((a,x)=>a+x.prix*x.qty,0);
+  const disc=Math.min(STATE.discount,sub), total=sub-disc;
+  const nb=STATE.cart.reduce((a,x)=>a+x.qty,0);
+  b.innerHTML=STATE.cart.map(x=>`
+    <div class="cart-row">
+      <div class="cart-name">${x.nom}<br><span style="color:var(--muted);font-size:.69rem">×${fmtF(x.prix)}</span></div>
+      <div class="qbtn" onclick="updCartQty(${x.id},-1)">−</div>
+      <div class="cart-qty">${x.qty}</div>
+      <div class="qbtn" onclick="updCartQty(${x.id},1)">+</div>
+      <div class="cart-sub">${fmtF(x.prix*x.qty)}</div>
+    </div>`).join('');
+  tEl.textContent=fmtF(total);
+  cEl.textContent=nb+' article(s)';
+  dEl.textContent=disc>0?`Remise: −${fmtF(disc)}`:'';
+}
+function clearCart(){STATE.cart=[];STATE.discount=0;renderCart();}
+function applyDiscount(){
+  if(!STATE.cart.length){showToast('⚠️ Panier vide');return;}
+  document.getElementById('remPct').value='';
+  document.getElementById('remMont').value='';
+  openModal('remiseModal');
+}
+function validerRemise(){
+  const pct=parseFloat(document.getElementById('remPct').value)||0;
+  const mont=parseFloat(document.getElementById('remMont').value)||0;
+  const sub=STATE.cart.reduce((a,x)=>a+x.prix*x.qty,0);
+  STATE.discount=pct>0?Math.round(sub*pct/100):mont;
+  closeModal('remiseModal'); renderCart();
+  showToast('✅ Remise: −'+fmtF(STATE.discount));
+}
+
+// ════════════════════════════════════════════════════════
+// PAYMENT
+// ════════════════════════════════════════════════════════
+function openPayModal(){
+  if(!STATE.cart.length){showToast('⚠️ Panier vide');return;}
+  if(!STATE.caisseOuverte){showToast('⚠️ Ouvrez la caisse d\'abord');return;}
+  const sub=STATE.cart.reduce((a,x)=>a+x.prix*x.qty,0);
+  const total=sub-Math.min(STATE.discount,sub);
+  document.getElementById('payDue').textContent=fmtF(total);
+  document.getElementById('amtRecv').value=total;
+  STATE.payMethod='especes';
+  document.querySelectorAll('.pay-m').forEach(e=>e.classList.remove('sel'));
+  document.querySelectorAll('.pay-m')[0].classList.add('sel');
+  document.getElementById('zoneEsp').style.display='block';
+  document.getElementById('zoneMob').style.display='none';
+  document.getElementById('zoneCred').style.display='none';
+  calcMonnaie();
+  // Clients pour crédit
+  const sel=document.getElementById('credCli');
+  sel.innerHTML='<option value="">— Sélectionner —</option>';
+  getClients().forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.nom} (dette:${fmtF(c.dette||0)} / plafond:${fmtF(c.plafond||0)})</option>`);
+  // Reset boutons
+  resetPayModal();
+  openModal('payModal');
+}
+function selPay(m,el){
+  STATE.payMethod=m;
+  document.querySelectorAll('.pay-m').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('zoneEsp').style.display=m==='especes'?'block':'none';
+  document.getElementById('zoneMob').style.display=m==='mobile'?'block':'none';
+  document.getElementById('zoneCred').style.display=m==='credit'?'block':'none';
+}
+function calcMonnaie(){
+  const sub=STATE.cart.reduce((a,x)=>a+x.prix*x.qty,0);
+  const due=sub-Math.min(STATE.discount,sub);
+  const recv=parseFloat(document.getElementById('amtRecv').value)||0;
+  const diff=recv-due;
+  const div=document.getElementById('monnaieDiv');
+  if(diff<0){div.style.cssText='background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);color:var(--err);padding:8px 12px;border-radius:var(--rs)';div.textContent='Manque: '+fmtF(Math.abs(diff));}
+  else{div.style.cssText='background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);color:var(--ok);padding:8px 12px;border-radius:var(--rs)';div.textContent='Monnaie à rendre: '+fmtF(diff);}
+}
+function resetPayModal(){
+  document.getElementById('payCancel').textContent='Annuler';
+  document.getElementById('payCancel').onclick=()=>closeModal('payModal');
+  document.getElementById('payConfirm').style.display='';
+  document.getElementById('btnPrintTicket').style.display='none';
+}
+function confirmerVente(){
+  const sub=STATE.cart.reduce((a,x)=>a+x.prix*x.qty,0);
+  const total=sub-Math.min(STATE.discount,sub);
+  if(STATE.payMethod==='especes'){
+    const recv=parseFloat(document.getElementById('amtRecv').value)||0;
+    if(recv<total){showToast('❌ Montant insuffisant');return;}
+  }
+  if(STATE.payMethod==='credit'){
+    const cid=parseInt(document.getElementById('credCli').value);
+    if(!cid){showToast('⚠️ Sélectionnez un client');return;}
+    if(!requirePlan('Vente à crédit','pro')) return;
+    const clients=getClients(); const c=clients.find(x=>x.id===cid);
+    if(c){
+      if((c.dette||0)+total>(c.plafond||0)){showToast('❌ Plafond crédit dépassé');return;}
+      c.dette=(c.dette||0)+total; saveClients(clients);
+    }
+  }
+  // Déstock
+  const prods=getProds();
+  STATE.cart.forEach(item=>{const p=prods.find(x=>x.id===item.id);if(p)p.stock=Math.max(0,p.stock-item.qty);});
+  saveProds(prods);
+  // Vente
+  const sale={id:Date.now(),ts:new Date().toISOString(),items:[...STATE.cart],total,subtotal:sub,discount:STATE.discount,payMethod:STATE.payMethod,caissiere:STATE.user,ref:document.getElementById('mobRef')?.value||''};
+  const sales=getSales(); sales.unshift(sale); saveSales(sales);
+  STATE.lastSale=sale;
+  addAudit('Vente',`${fmtF(total)} — ${STATE.cart.length} art. — ${STATE.payMethod}`,'vente');
+  // Notifs stock critique post-vente
+  getProds().filter(p=>p.stock===0).forEach(p=>addNotif(`🚨 ${p.nom} est épuisé!`,'err'));
+
+  // Afficher bouton imprimer
+  document.getElementById('btnPrintTicket').style.display='flex';
+  document.getElementById('payConfirm').style.display='none';
+  document.getElementById('payCancel').textContent='✕ Fermer';
+  document.getElementById('payCancel').onclick=()=>{closeModal('payModal');resetPayModal();};
+
+  // Auto-print
+  if(ls.get('bleAutoprint',false)&&BLE.connected) setTimeout(()=>printSale(sale),350);
+
+  clearCart();
+  showToast('✅ '+fmtF(total)+' encaissé');
+  renderAll(); checkAlertBadge();
+  // Aperçu ticket dans modal printer
+  if(document.getElementById('ticketPrev')){
+    document.getElementById('ticketPrev').textContent=previewTicket(sale);
+    document.getElementById('ticketPrevZone').style.display='block';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// CAISSE
+// ════════════════════════════════════════════════════════
+function updateCaisseUI(){
+  const al=document.getElementById('caisseAlert');
+  const btn=document.getElementById('btnCaisse');
+  if(STATE.caisseOuverte){al.style.display='none';if(btn)btn.textContent='🔒 Fermer caisse';}
+  else{al.style.display='flex';if(btn)btn.textContent='🔓 Ouvrir caisse';}
+}
+function openCaisseModal(){
+  const cl=STATE.caisseOuverte;
+  document.getElementById('caisseMTitle').textContent=cl?'🔒 Fermeture de caisse':'🔓 Ouverture de caisse';
+  document.getElementById('caisseMDesc').textContent=cl?'Comptez et saisissez le montant en caisse':'Entrez le fond de caisse de départ';
+  document.getElementById('caisseMBtn').textContent=cl?'✓ Fermer':'✓ Ouvrir';
+  document.getElementById('fondCaisse').value='';
+  const ez=document.getElementById('caisseEcartInfo'); ez.innerHTML='';
+  if(cl){
+    const sales=getSales(),today=new Date().toDateString();
+    const esp=sales.filter(s=>new Date(s.ts).toDateString()===today&&s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+    const attendu=STATE.fondCaisse+esp;
+    ez.innerHTML=`<div class="alert al-info" style="margin-bottom:10px">Montant attendu: <strong>${fmtF(attendu)}</strong><br><small>Fond ${fmtF(STATE.fondCaisse)} + Espèces ${fmtF(esp)}</small></div>`;
+  }
+  openModal('caisseModal');
+}
+function validerCaisse(){
+  const mt=parseFloat(document.getElementById('fondCaisse').value)||0;
+  if(!STATE.caisseOuverte){
+    STATE.caisseOuverte=true; STATE.fondCaisse=mt;
+    saveCaisseS({ouverte:true,fond:mt,ts:new Date().toISOString()});
+    addAudit('Ouverture caisse','Fond: '+fmtF(mt),'caisse');
+    showToast('✅ Caisse ouverte — '+fmtF(mt));
+  } else {
+    const sales=getSales(),today=new Date().toDateString();
+    const esp=sales.filter(s=>new Date(s.ts).toDateString()===today&&s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+    const attendu=STATE.fondCaisse+esp, ecart=mt-attendu;
+    addAudit('Fermeture caisse',`Attendu:${fmtF(attendu)} Compté:${fmtF(mt)} Écart:${fmtF(ecart)}`,'caisse');
+    if(Math.abs(ecart)>0){addAudit('⚠️ Écart caisse',fmtF(ecart),'alerte');addNotif(`⚠️ Écart caisse: ${fmtF(ecart)}`,'warn');}
+    STATE.caisseOuverte=false; STATE.fondCaisse=0;
+    saveCaisseS({ouverte:false,fond:0});
+    showToast(`✅ Caisse fermée — Écart: ${fmtF(ecart)}`);
+  }
+  closeModal('caisseModal'); updateCaisseUI(); renderDash();
+}
+
+// ════════════════════════════════════════════════════════
+// STOCK
+// ════════════════════════════════════════════════════════
+function renderStock(f){
+  f=f||STATE.stkFilter; STATE.stkFilter=f;
+  let prods=getProds();
+  if(f==='alerte') prods=prods.filter(p=>p.stock<=p.seuil);
+  else if(f!=='tous') prods=prods.filter(p=>p.cat===f);
+  const val=getProds().reduce((a,p)=>a+p.stock*p.achat,0);
+  document.getElementById('stkVal').textContent=fmtF(val);
+  const el=document.getElementById('stkList'); if(!el) return;
+  if(!prods.length){el.innerHTML='<p class="muted tc" style="padding:14px">Aucun produit</p>';return;}
+  el.innerHTML=prods.map(p=>{
+    const pct=Math.min(100,p.seuil>0?Math.round(p.stock/(p.seuil*3)*100):80);
+    const col=p.stock===0?'var(--err)':p.stock<=p.seuil?'var(--warn)':'var(--ok)';
+    const eb=STATE.role!=='caissiere'?`<button class="btn btn-xs btn-outline" onclick="editProd(${p.id})" style="padding:4px 8px">✏️</button>`:'';
+    return `<div class="stk-row">
+      <div style="font-size:1.4rem;flex-shrink:0">${p.emoji||'📦'}</div>
+      <div class="stk-info">
+        <div class="stk-name">${p.nom}</div>
+        <div class="stk-meta">${p.cat} · ${fmtF(p.prix)}/${p.unite} · achat:${fmtF(p.achat)}</div>
+        <div class="stk-bar"><div class="stk-fill" style="width:${pct}%;background:${col}"></div></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:1rem;font-weight:700;color:${col}">${p.stock===0?'❌':p.stock<=p.seuil?'⚠️ '+p.stock:p.stock}</div>
+        <div style="font-size:.68rem;color:var(--muted)">seuil:${p.seuil}</div>
+        <div style="margin-top:4px">${eb}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterStk(f,el){
+  document.querySelectorAll('#stk-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderStock(f);
+}
+function openAddProd(){
+  document.getElementById('editProdId').value='';
+  document.getElementById('prodMTitle').textContent='📦 Nouveau produit';
+  ['pNom','pPrix','pAchat','pStock','pBarcode'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pSeuil').value='5';
+  openModal('prodModal');
+}
+function editProd(id){
+  const p=getProds().find(x=>x.id===id); if(!p) return;
+  if(!requirePlan('Modifier les produits','pro')) return;
+  document.getElementById('editProdId').value=id;
+  document.getElementById('prodMTitle').textContent='✏️ Modifier: '+p.nom;
+  document.getElementById('pNom').value=p.nom;
+  document.getElementById('pCat').value=p.cat;
+  document.getElementById('pUnite').value=p.unite;
+  document.getElementById('pPrix').value=p.prix;
+  document.getElementById('pAchat').value=p.achat;
+  document.getElementById('pStock').value=p.stock;
+  document.getElementById('pSeuil').value=p.seuil;
+  document.getElementById('pBarcode').value=p.barcode||'';
+  openModal('prodModal');
+}
+function saveProd(){
+  const nom=document.getElementById('pNom').value.trim();
+  if(!nom){showToast('⚠️ Nom requis');return;}
+  const em={vins:'🍷',bieres:'🍺',spiritueux:'🥃',autres:'📦'};
+  const cat=document.getElementById('pCat').value;
+  const prods=getProds();
+  const eid=parseInt(document.getElementById('editProdId').value)||0;
+  if(eid){
+    const p=prods.find(x=>x.id===eid);
+    if(p) Object.assign(p,{nom,cat,emoji:em[cat],unite:document.getElementById('pUnite').value,prix:+document.getElementById('pPrix').value||0,achat:+document.getElementById('pAchat').value||0,stock:+document.getElementById('pStock').value||0,seuil:+document.getElementById('pSeuil').value||5,barcode:document.getElementById('pBarcode').value});
+    addAudit('Modif. produit',nom,'stock');
+  } else {
+    prods.push({id:Date.now(),nom,cat,emoji:em[cat],unite:document.getElementById('pUnite').value,prix:+document.getElementById('pPrix').value||0,achat:+document.getElementById('pAchat').value||0,stock:+document.getElementById('pStock').value||0,seuil:+document.getElementById('pSeuil').value||5,barcode:document.getElementById('pBarcode').value});
+    addAudit('Nouveau produit',nom,'stock');
+  }
+  saveProds(prods); closeModal('prodModal'); renderAll(); showToast('✅ Produit enregistré');
+}
+function openEntreeModal(){
+  if(!requirePlan('Entrée fournisseur','pro')) return;
+  const sel=document.getElementById('eProd');
+  sel.innerHTML=''; getProds().forEach(p=>sel.innerHTML+=`<option value="${p.id}">${p.emoji} ${p.nom} (stock:${p.stock})</option>`);
+  document.getElementById('eQty').value=''; document.getElementById('eAchat').value=''; document.getElementById('eFourn').value=''; document.getElementById('eBL').value='';
+  openModal('entreeModal');
+}
+function saveEntree(){
+  const pid=parseInt(document.getElementById('eProd').value);
+  const qty=parseInt(document.getElementById('eQty').value)||0;
+  if(qty<=0){showToast('⚠️ Quantité invalide');return;}
+  const prods=getProds(); const p=prods.find(x=>x.id===pid); if(!p) return;
+  p.stock+=qty;
+  if(document.getElementById('eAchat').value) p.achat=+document.getElementById('eAchat').value;
+  saveProds(prods);
+  const ent={id:Date.now(),ts:new Date().toISOString(),prodId:pid,prodNom:p.nom,qty,achat:p.achat,fourn:document.getElementById('eFourn').value,bl:document.getElementById('eBL').value,user:STATE.user};
+  const ents=getEntrees(); ents.unshift(ent); saveEntrees(ents);
+  addAudit('Entrée stock',`+${qty} × ${p.nom}`,'stock');
+  closeModal('entreeModal'); renderAll(); showToast(`✅ +${qty} ${p.unite}(s) — ${p.nom}`);
+}
+
+// ════════════════════════════════════════════════════════
+// HISTORIQUE
+// ════════════════════════════════════════════════════════
+function filterSalesByPeriod(f){
+  const now=new Date(), sales=getSales();
+  return sales.filter(s=>{
+    const d=new Date(s.ts);
+    if(f==='j') return d.toDateString()===now.toDateString();
+    if(f==='7') return now-d<7*864e5;
+    return now-d<30*864e5;
+  });
+}
+function renderHist(f){
+  f=f||STATE.histFilter; STATE.histFilter=f;
+  const sales=filterSalesByPeriod(f);
+  const ca=sales.reduce((a,s)=>a+s.total,0);
+  const esp=sales.filter(s=>s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+  const mm=sales.filter(s=>s.payMethod==='mobile').reduce((a,s)=>a+s.total,0);
+  document.getElementById('histKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-lbl">CA</div><div class="kpi-val g">${fmtF(ca)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">💵 Espèces</div><div class="kpi-val ok">${fmtF(esp)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">📱 Mobile</div><div class="kpi-val info">${fmtF(mm)}</div></div>`;
+  const el=document.getElementById('histList'); if(!el) return;
+  if(!sales.length){el.innerHTML='<p class="muted tc" style="padding:20px">Aucune vente</p>';return;}
+  const ic={especes:'💵',mobile:'📱',credit:'📝'};
+  el.innerHTML=sales.map(s=>`
+    <div class="sale-row">
+      <div style="font-size:1.2rem">${ic[s.payMethod]||'💳'}</div>
+      <div class="sale-info">
+        <div class="sale-title">${s.items.slice(0,2).map(i=>i.nom).join(', ')}${s.items.length>2?'…':''}</div>
+        <div class="sale-meta">${new Date(s.ts).toLocaleDateString('fr-FR')} ${new Date(s.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · ${s.caissiere}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700;color:var(--gold);font-size:.9rem">${fmtF(s.total)}</div>
+        <span class="s-badge s-${s.payMethod}">${s.payMethod}</span>
+        ${s.discount>0?`<div style="font-size:.66rem;color:var(--ok)">−${fmtF(s.discount)}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+function filterHist(f,el){
+  document.querySelectorAll('#pageHist .tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderHist(f);
+}
+
+// ════════════════════════════════════════════════════════
+// CLIENTS
+// ════════════════════════════════════════════════════════
+function renderClients(){
+  const q=(document.getElementById('searchCli')?.value||'').toLowerCase();
+  const clients=getClients().filter(c=>!q||c.nom.toLowerCase().includes(q));
+  const el=document.getElementById('cliList'); if(!el) return;
+  if(!clients.length){el.innerHTML='<p class="muted tc" style="padding:20px">Aucun client</p>';return;}
+  el.innerHTML=clients.map(c=>`
+    <div class="cli-row" onclick="openCliDetail(${c.id})">
+      <div class="cli-av">${c.nom.charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem">${c.nom}</div>
+        <div style="font-size:.72rem;color:var(--muted)">${c.tel||'—'} · Plafond: ${fmtF(c.plafond||0)}</div>
+        <div style="font-size:.76rem;${c.dette>0?'color:var(--err)':'color:var(--ok)'}">${c.dette>0?'💳 '+fmtF(c.dette)+' de dette':'✅ Aucune dette'}</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--muted)">›</div>
+    </div>`).join('');
+}
+function openCliDetail(id){
+  const c=getClients().find(x=>x.id===id); if(!c) return;
+  const sales=getSales().filter(s=>s.payMethod==='credit'&&s.items);// historique achats
+  document.getElementById('cliDetailTitle').textContent='👤 '+c.nom;
+  const remBtn=STATE.role!=='caissiere'&&c.dette>0?`<button class="btn btn-ok btn-sm btn-w" onclick="rembourser(${c.id});closeModal('cliDetailModal')">💰 Marquer réglé (${fmtF(c.dette)})</button>`:'';
+  document.getElementById('cliDetailContent').innerHTML=`
+    <div class="kpi3" style="margin-bottom:10px">
+      <div class="kpi"><div class="kpi-lbl">Dette</div><div class="kpi-val ${c.dette>0?'err':'ok'}">${fmtF(c.dette||0)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Plafond</div><div class="kpi-val g">${fmtF(c.plafond||0)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Dispo.</div><div class="kpi-val ok">${fmtF(Math.max(0,(c.plafond||0)-(c.dette||0)))}</div></div>
+    </div>
+    <div class="muted" style="margin-bottom:6px">📱 ${c.tel||'—'} · 📍 ${c.addr||'—'}</div>
+    ${remBtn}
+    ${STATE.role!=='caissiere'?`<button class="btn btn-outline btn-sm btn-w mt8" onclick="whatsappClient(${c.id})">📲 WhatsApp rappel de dette</button>`:''}
+  `;
+  openModal('cliDetailModal');
+}
+function whatsappClient(id){
+  const c=getClients().find(x=>x.id===id); if(!c||!c.tel) return;
+  const msg=`Bonjour ${c.nom},\n\nNous vous rappelons que vous avez une dette de *${fmtF(c.dette||0)}* à régler à ${STATE.shopName}.\n\nMerci de nous contacter pour régulariser.\n\n_${STATE.shopName}_`;
+  window.open('https://wa.me/226'+c.tel.replace(/\s/g,'')+'?text='+encodeURIComponent(msg));
+}
+function saveCli(){
+  const nom=document.getElementById('cNom').value.trim(); if(!nom){showToast('⚠️ Nom requis');return;}
+  const clients=getClients();
+  clients.push({id:Date.now(),nom,tel:document.getElementById('cTel').value,plafond:+document.getElementById('cPlafond').value||50000,dette:0,addr:document.getElementById('cAddr').value});
+  saveClients(clients); closeModal('addCliModal'); renderClients();
+  addAudit('Nouveau client',nom,''); showToast('✅ Client ajouté');
+}
+function rembourser(id){
+  const clients=getClients(); const c=clients.find(x=>x.id===id);
+  if(!c||!c.dette){showToast('Aucune dette');return;}
+  addAudit('Remboursement',c.nom+' — '+fmtF(c.dette),'caisse');
+  c.dette=0; saveClients(clients); renderClients(); renderDash(); showToast('✅ Dette réglée');
+}
+
+// ════════════════════════════════════════════════════════
+// RAPPORTS
+// ════════════════════════════════════════════════════════
+function renderRapport(f){
+  f=f||STATE.rptFilter; STATE.rptFilter=f;
+  if(!requirePlan('Rapports avancés','pro')) { document.getElementById('rptContent').innerHTML=subWall('Rapports avancés','pro'); return; }
+  const sales=filterSalesByPeriod(f);
+  const ca=sales.reduce((a,s)=>a+s.total,0);
+  const prods=getProds(); let achat=0;
+  sales.forEach(s=>s.items.forEach(i=>{const p=prods.find(x=>x.id===i.id);if(p)achat+=p.achat*i.qty;}));
+  const marge=ca-achat, pct=ca>0?Math.round(marge/ca*100):0;
+  const esp=sales.filter(s=>s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+  const mm=sales.filter(s=>s.payMethod==='mobile').reduce((a,s)=>a+s.total,0);
+  const cred=sales.filter(s=>s.payMethod==='credit').reduce((a,s)=>a+s.total,0);
+  const topMap={}; sales.forEach(s=>s.items.forEach(i=>topMap[i.nom]=(topMap[i.nom]||0)+i.qty*i.prix));
+  const top=Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxTop=top.length?top[0][1]:1;
+  document.getElementById('rptContent').innerHTML=`
+    <div class="rpt-kpi-big"><div class="rpt-val">${fmtF(ca)}</div><div class="rpt-lbl">Chiffre d'affaires</div></div>
+    <div class="kpi3" style="margin-bottom:10px">
+      <div class="kpi"><div class="kpi-lbl">Marge brute</div><div class="kpi-val ok">${fmtF(marge)}</div><div class="kpi-sub">${pct}%</div></div>
+      <div class="kpi"><div class="kpi-lbl">Transactions</div><div class="kpi-val">${sales.length}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Panier moy.</div><div class="kpi-val g">${fmtF(sales.length?Math.round(ca/sales.length):0)}</div></div>
+    </div>
+    <div class="card"><div class="sec-title" style="font-size:.95rem;margin-bottom:10px">💳 Paiements</div>
+      ${barRow('💵 Espèces',esp,ca,'var(--ok)')}
+      ${barRow('📱 Mobile',mm,ca,'var(--info)')}
+      ${barRow('📝 Crédit',cred,ca,'var(--warn)')}
+    </div>
+    ${top.length?`<div class="card"><div class="sec-title" style="font-size:.95rem;margin-bottom:10px">🏆 Top produits (CA)</div>${top.map(([n,v])=>barRow(n,v,maxTop,'var(--gold)',fmtF(v))).join('')}</div>`:''}
+  `;
+  renderEntreesLog();
+  renderAudit();
+}
+function barRow(lbl,val,max,col,display=''){
+  const pct=max>0?Math.min(100,Math.round(val/max*100)):0;
+  return `<div class="bar-row"><div class="bar-lbl">${lbl}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><div class="bar-val">${display||fmtF(val)}</div></div>`;
+}
+function filterRpt(f,el){
+  document.querySelectorAll('#pageRapports .tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderRapport(f);
+}
+function renderEntreesLog(){
+  const ents=getEntrees().slice(0,8);
+  const el=document.getElementById('entreesLog'); if(!el) return;
+  if(!ents.length){el.innerHTML='<p class="muted">Aucune entrée fournisseur</p>';return;}
+  el.innerHTML=ents.map(e=>`
+    <div class="sale-row">
+      <div style="font-size:1.2rem">📦</div>
+      <div class="sale-info"><div class="sale-title">${e.prodNom}</div><div class="sale-meta">${e.fourn||'—'} · BL:${e.bl||'—'} · ${new Date(e.ts).toLocaleDateString('fr-FR')}</div></div>
+      <div style="text-align:right;color:var(--info);font-weight:700">+${e.qty}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// AUDIT
+// ════════════════════════════════════════════════════════
+function renderAudit(){
+  const el=document.getElementById('auditLog'); if(!el) return;
+  if(!requirePlan('Journal d\'audit','pro')){el.innerHTML=subWall('Journal d\'audit','pro');return;}
+  const logs=getAudit().slice(0,80);
+  if(!logs.length){el.innerHTML='<p class="muted">Aucune entrée</p>';return;}
+  const tm={vente:'atag-v',stock:'atag-s',caisse:'atag-c',alerte:'atag-a'};
+  el.innerHTML=logs.map(l=>{
+    const t=new Date(l.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const tag=l.tag?`<span class="atag ${tm[l.tag]||''}">${l.tag}</span>`:'';
+    return `<div class="audit-row"><span class="audit-t">${t}</span><span style="flex:1"><span class="audit-u">${l.user}</span> — ${l.action}${l.detail?' · '+l.detail:''} ${tag}</span></div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// OWNER PANEL
+// ════════════════════════════════════════════════════════
+function renderOwner(){
+  if(STATE.role!=='owner'&&STATE.role!=='superadmin') return;
+  const shop=getShop(STATE.shopId)||{};
+  const emps=getEmps();
+  const sales=getSales();
+  const prods=getProds();
+  const today=new Date().toDateString();
+  const tday=sales.filter(s=>new Date(s.ts).toDateString()===today);
+  const caJour=tday.reduce((a,s)=>a+s.total,0);
+  let achat=0; tday.forEach(s=>s.items.forEach(i=>{const p=prods.find(x=>x.id===i.id);if(p)achat+=p.achat*i.qty;}));
+
+  const planInfo=PLANS[STATE.plan]||PLANS.pro;
+  document.getElementById('ownerPlanChip').textContent=planInfo.name;
+  document.getElementById('ownerPlanChip').className='plan-chip chip-'+STATE.plan;
+
+  // Perf par caissière
+  const perfMap={};
+  tday.forEach(s=>{perfMap[s.caissiere]=(perfMap[s.caissiere]||0)+s.total;});
+  const perfRows=Object.entries(perfMap).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('ownerContent').innerHTML=`
+    <!-- KPI Owner -->
+    <div class="kpi4">
+      <div class="kpi"><div class="kpi-lbl">CA Aujourd'hui</div><div class="kpi-val g">${fmtF(caJour)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Marge brute</div><div class="kpi-val ok">${fmtF(caJour-achat)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Produits</div><div class="kpi-val">${prods.length}/${planInfo.limits.produits===9999?'∞':planInfo.limits.produits}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Employés</div><div class="kpi-val">${emps.length}/${planInfo.limits.employes===999?'∞':planInfo.limits.employes}</div></div>
+    </div>
+
+    <!-- Abonnement -->
+    <div class="card card-gold">
+      <div class="flex-b" style="margin-bottom:8px">
+        <div><div class="sec-title" style="font-size:.95rem">⭐ Abonnement actuel</div><div class="muted" style="font-size:.75rem">${planInfo.label}</div></div>
+        <button class="btn btn-gold btn-sm" onclick="openModal('upgradeModal')">Changer</button>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted)">${planInfo.features.join(' · ')}</div>
+    </div>
+
+    <!-- Performance équipe -->
+    <div class="card">
+      <div class="flex-b" style="margin-bottom:10px">
+        <div class="sec-title" style="font-size:.95rem">👥 Performance équipe (aujourd'hui)</div>
+        <button class="btn btn-gold btn-xs" onclick="openModal('empModal')">+ Employé</button>
+      </div>
+      ${perfRows.length?perfRows.map(([nom,ca])=>barRow(nom,ca,perfRows[0][1],'var(--purple)',fmtF(ca))).join(''):'<p class="muted">Aucune vente aujourd\'hui</p>'}
+    </div>
+
+    <!-- Liste employés -->
+    <div class="card">
+      <div class="sec-title" style="font-size:.95rem;margin-bottom:10px">👤 Mes employés</div>
+      ${emps.map(e=>`
+        <div class="flex-b" style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-weight:600;font-size:.86rem">${e.nom}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${e.role} · ${e.tel||'—'}</div>
+          </div>
+          <div class="flex" style="gap:5px">
+            <span class="pill" style="background:rgba(46,204,113,.2);color:var(--ok)">${e.actif?'Actif':'Inactif'}</span>
+            <button class="btn btn-xs btn-outline" onclick="toggleEmp(${e.id})">${e.actif?'Désact.':'Activer'}</button>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Config boutique -->
+    <div class="card">
+      <div class="sec-title" style="font-size:.95rem;margin-bottom:10px">⚙️ Configuration boutique</div>
+      <div class="fg"><label>Nom boutique</label><input id="cfgNom" class="fi" value="${STATE.shopName}"/></div>
+      <div class="fg"><label>Adresse / Ville</label><input id="cfgAddr" class="fi" value="${shop.ville||''}"/></div>
+      <div class="fg"><label>Téléphone boutique</label><input id="cfgTel" class="fi" value="${shop.phone||''}"/></div>
+      <button class="btn btn-gold btn-sm" onclick="saveBoutiqueCfg()">✓ Enregistrer</button>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="card" style="border-color:rgba(231,76,60,.3)">
+      <div class="sec-title" style="font-size:.95rem;color:var(--err);margin-bottom:8px">⚠️ Zone danger</div>
+      <button class="btn btn-err btn-sm" onclick="resetData()">🗑️ Réinitialiser toutes les données</button>
+    </div>
+  `;
+}
+
+function saveEmp(){
+  const nom=document.getElementById('empNom').value.trim(); if(!nom){showToast('⚠️ Nom requis');return;}
+  const pin=document.getElementById('empPin').value;
+  if(pin.length!==4){showToast('⚠️ PIN = 4 chiffres');return;}
+  const emps=getEmps();
+  const plan=PLANS[STATE.plan]||PLANS.pro;
+  if(emps.length>=plan.limits.employes&&!parseInt(document.getElementById('editEmpId').value)){showToast('❌ Limite employés atteinte — Passez au plan supérieur');openModal('upgradeModal');return;}
+  const eid=parseInt(document.getElementById('editEmpId').value)||0;
+  if(eid){const e=emps.find(x=>x.id===eid);if(e)Object.assign(e,{nom,role:document.getElementById('empRole').value,pin,tel:document.getElementById('empTel').value});}
+  else emps.push({id:Date.now(),nom,role:document.getElementById('empRole').value,pin,tel:document.getElementById('empTel').value,actif:true});
+  saveEmps(emps); closeModal('empModal'); renderOwner(); showToast('✅ Employé enregistré');
+  addAudit('Employé',nom,'');
+}
+function toggleEmp(id){
+  const emps=getEmps(); const e=emps.find(x=>x.id===id);
+  if(e){e.actif=!e.actif; saveEmps(emps); renderOwner(); showToast(e.actif?'✅ Employé activé':'⚠️ Employé désactivé');}
+}
+function saveBoutiqueCfg(){
+  const shops=getAllShops(); const s=shops.find(x=>x.id===STATE.shopId);
+  if(s){s.name=document.getElementById('cfgNom').value;s.phone=document.getElementById('cfgTel').value;s.ville=document.getElementById('cfgAddr').value;}
+  saveAllShops(shops); STATE.shopName=document.getElementById('cfgNom').value;
+  document.getElementById('topShopName').textContent='🍷 '+STATE.shopName;
+  showToast('✅ Configuration enregistrée');
+}
+function resetData(){
+  if(!confirm('⚠️ Supprimer TOUTES les ventes, stocks et données?\nCette action est irréversible!')) return;
+  ['prods','sales','clients','audit','entrees','emps','caisse'].forEach(k=>DB.set(k,null));
+  showToast('🗑️ Données réinitialisées'); renderAll();
+}
+
+// ════════════════════════════════════════════════════════
+// SUPER ADMIN (triple-click + PIN 761278)
+// ════════════════════════════════════════════════════════
+function renderSuperAdmin(){
+  const shops=getAllShops();
+  const totalCA=shops.reduce((a,sh)=>{
+    const s=ls.get(`cave_${sh.id}_sales`,[]);
+    return a+s.reduce((b,v)=>b+v.total,0);
+  },0);
+  document.getElementById('saContent').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="saas-metric"><div class="saas-metric-val" style="color:var(--purple)">${shops.length}</div><div class="saas-metric-lbl">Boutiques</div></div>
+      <div class="saas-metric"><div class="saas-metric-val" style="color:var(--ok)">${shops.filter(s=>s.status==='active').length}</div><div class="saas-metric-lbl">Actives</div></div>
+      <div class="saas-metric"><div class="saas-metric-val" style="color:var(--gold)">${fmtF(totalCA)}</div><div class="saas-metric-lbl">CA Global</div></div>
+    </div>
+    <div class="flex-b" style="margin-bottom:10px"><div class="sec-title" style="font-size:.95rem">🏪 Boutiques enregistrées</div><button class="btn btn-purple btn-sm" onclick="saCreateShop()">+ Boutique</button></div>
+    ${shops.map(s=>{
+      const sales=ls.get(`cave_${s.id}_sales`,[]);
+      const ca=sales.reduce((a,v)=>a+v.total,0);
+      const statusCls=s.status==='active'?'sub-active':s.status==='trial'?'sub-trial':'sub-expired';
+      return `<div class="tenant-row">
+        <div class="shop-avatar">🍷</div>
+        <div style="flex:1;min-width:0">
+          <div class="shop-name">${s.name}</div>
+          <div class="shop-meta">${s.ville} · ${s.owner} · ${s.phone}</div>
+          <div class="shop-meta">CA: ${fmtF(ca)} · Plan: ${s.plan||'starter'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <span class="sub-badge ${statusCls}">${s.status}</span>
+          <div class="flex" style="gap:4px">
+            <button class="btn btn-xs btn-outline" onclick="saChangePlan('${s.id}')">Plan</button>
+            <button class="btn btn-xs btn-err" onclick="saToggle('${s.id}')">⏸</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')||'<p class="muted tc" style="padding:20px">Aucune boutique</p>'}
+    <div class="divider"></div>
+    <div class="alert al-pur">🔑 Super Admin — Dev PIN: ${DEV_PIN} | Contact: wa.me/22678548317</div>
+  `;
+}
+function saCreateShop(){
+  const name=prompt('Nom de la boutique:'); if(!name) return;
+  const owner=prompt('Nom du propriétaire:'); if(!owner) return;
+  const phone=prompt('Téléphone:');
+  const plan=prompt('Plan (starter/pro/enterprise):','pro')||'pro';
+  const pin=prompt('PIN propriétaire (4 chiffres):','0000');
+  const shops=getAllShops();
+  const id='shop_'+Date.now();
+  shops.push({id,name,owner,phone,ville:'Ouagadougou',plan,ownerPin:pin,createdAt:new Date().toISOString(),trialEnd:new Date(Date.now()+14*864e5).toISOString(),status:'trial'});
+  saveAllShops(shops); renderSuperAdmin(); showToast('✅ Boutique créée: '+name);
+}
+function saChangePlan(id){
+  const plan=prompt('Nouveau plan (starter/pro/enterprise):','pro'); if(!plan) return;
+  const shops=getAllShops(); const s=shops.find(x=>x.id===id);
+  if(s){s.plan=plan;s.status='active';saveAllShops(shops);renderSuperAdmin();showToast('✅ Plan mis à jour');}
+}
+function saToggle(id){
+  const shops=getAllShops(); const s=shops.find(x=>x.id===id);
+  if(s){s.status=s.status==='suspended'?'active':'suspended';saveAllShops(shops);renderSuperAdmin();}
+}
+
+// ════════════════════════════════════════════════════════
+// REGISTER
+// ════════════════════════════════════════════════════════
+function renderPlansGrid(){
+  document.getElementById('plansGrid').innerHTML=Object.values(PLANS).map(p=>`
+    <div class="plan-card plan-${p.id}${p.id==='pro'?' recommended':''}" id="planCard_${p.id}" onclick="selectPlan('${p.id}')">
+      <div class="plan-name">${p.name}</div>
+      <div class="plan-price">${p.price.toLocaleString('fr-FR')} <span>F CFA/mois</span></div>
+      <div class="plan-features">${p.features.join(' · ')}</div>
+    </div>`).join('');
+  selectPlan('pro');
+}
+let selectedPlan='pro';
+function selectPlan(id){
+  selectedPlan=id;
+  document.querySelectorAll('.plan-card').forEach(c=>c.classList.remove('selected-plan'));
+  document.getElementById('planCard_'+id)?.classList.add('selected-plan');
+}
+function renderUpgradePlans(){
+  const order=['starter','pro','enterprise'];
+  const curr=order.indexOf(STATE.plan);
+  document.getElementById('upgradePlans').innerHTML=order.filter((_,i)=>i>curr).map(id=>{
+    const p=PLANS[id];
+    return `<div class="plan-card plan-${id}" style="margin-bottom:8px;cursor:default">
+      <div class="plan-name">${p.name}</div>
+      <div class="plan-price">${p.price.toLocaleString('fr-FR')} <span>F CFA/mois</span></div>
+      <div class="plan-features">${p.features.join(' · ')}</div>
+    </div>`;
+  }).join('')||'<p class="muted">Vous êtes déjà au plan le plus élevé.</p>';
+}
+function registerShop(){
+  const name=document.getElementById('regShopName').value.trim();
+  const owner=document.getElementById('regOwnerName').value.trim();
+  const phone=document.getElementById('regPhone').value.trim();
+  const pin=document.getElementById('regPin').value;
+  if(!name||!owner||!phone){showToast('⚠️ Remplissez tous les champs');return;}
+  if(pin.length!==4){showToast('⚠️ PIN = 4 chiffres');return;}
+  const shops=getAllShops();
+  const id='shop_'+Date.now();
+  shops.push({id,name,owner,phone,ville:document.getElementById('regVille').value,plan:selectedPlan,ownerPin:pin,createdAt:new Date().toISOString(),trialEnd:new Date(Date.now()+14*864e5).toISOString(),status:'trial'});
+  saveAllShops(shops);
+  showToast('🎉 Boutique créée! Bienvenue dans CaveManager Pro');
+  setTimeout(()=>{populateLoginShops();switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);document.getElementById('loginShop').value=id;},800);
+}
+function contactUpgrade(){
+  const msg=`Bonjour, je souhaite souscrire à CaveManager Pro pour ma boutique *${STATE.shopName}*.\n\nPlan actuel: ${STATE.plan}\n\nMerci de me contacter.`;
+  window.open('https://wa.me/22678548317?text='+encodeURIComponent(msg));
+}
+
+// ════════════════════════════════════════════════════════
+// EXPORT WHATSAPP
+// ════════════════════════════════════════════════════════
+function exportWA(type){
+  if(!requirePlan('Export WhatsApp','pro')) return;
+  const sales=filterSalesByPeriod(STATE.rptFilter||'j');
+  const ca=sales.reduce((a,s)=>a+s.total,0);
+  const esp=sales.filter(s=>s.payMethod==='especes').reduce((a,s)=>a+s.total,0);
+  const mm=sales.filter(s=>s.payMethod==='mobile').reduce((a,s)=>a+s.total,0);
+  const cred=sales.filter(s=>s.payMethod==='credit').reduce((a,s)=>a+s.total,0);
+  let msg=`🍷 *${STATE.shopName}*\n📊 *Rapport — ${new Date().toLocaleDateString('fr-FR')}*\n\n`;
+  msg+=`• CA Total: *${fmtF(ca)}*\n• Transactions: ${sales.length}\n`;
+  msg+=`• 💵 Espèces: ${fmtF(esp)}\n• 📱 Mobile Money: ${fmtF(mm)}\n• 📝 Crédits: ${fmtF(cred)}\n\n_CaveManager Pro_`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg));
+}
+
+// ════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ════════════════════════════════════════════════════════
+function openNotifPanel(){
+  const notifs=getNotifs();
+  const el=document.getElementById('notifList');
+  el.innerHTML=notifs.length?notifs.slice(0,20).map(n=>`
+    <div class="alert ${n.type==='err'?'al-err':n.type==='warn'?'al-warn':'al-info'}" style="margin-bottom:6px">
+      <div style="flex:1">${n.msg}<div style="font-size:.68rem;color:var(--muted);margin-top:2px">${new Date(n.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div></div>
+    </div>`).join(''):'<p class="muted tc" style="padding:20px">Aucune notification</p>';
+  openModal('notifModal');
+}
+function clearNotifs(){ DB.set('notifs',[]); updateNotifBubble(); }
+function updateNotifBubble(){
+  const n=getNotifs().filter(x=>!x.read).length;
+  const b=document.getElementById('notifBubble');
+  if(b) b.style.display=n>0?'block':'none';
+}
+
+// ════════════════════════════════════════════════════════
+// ALERT BADGE NAV
+// ════════════════════════════════════════════════════════
+function checkAlertBadge(){
+  const a=getProds().filter(p=>p.stock<=p.seuil).length;
+  const nav=document.getElementById('navStock');
+  const old=nav?.querySelector('.nav-badge');
+  if(old) old.remove();
+  if(a>0){const b=document.createElement('div');b.className='nav-badge';b.textContent=a;nav?.appendChild(b);}
+}
+
+// ════════════════════════════════════════════════════════
+// HELPER: subscription wall
+// ════════════════════════════════════════════════════════
+function subWall(feature,plan){
+  return `<div class="sub-wall"><div class="sub-wall-icon">🔒</div><h3>${feature}</h3><p>Cette fonctionnalité nécessite le plan <strong>${plan.toUpperCase()}</strong> ou supérieur.</p><button class="btn btn-gold" onclick="openModal('upgradeModal')">⭐ Passer en ${plan.toUpperCase()}</button></div>`;
+}
+
+// ════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════
+function goNav(pageId,navId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(pageId)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(navId)?.classList.add('active');
+  const refresh={pageDash:renderDash,pagePOS:renderProds,pageStock:()=>renderStock(),pageHist:()=>renderHist(),pageClients:renderClients,pageRapports:()=>renderRapport(),pageOwner:renderOwner,pageSA:renderSuperAdmin};
+  refresh[pageId]?.();
+}
+
+// ════════════════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id)?.classList.add('active'); }
+function closeModal(id){ document.getElementById(id)?.classList.remove('active'); }
+document.addEventListener('click',e=>{
+  if(e.target.classList.contains('modal-ov')) e.target.classList.remove('active');
+});
+
+// ════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════
+function fmtF(n){ return new Intl.NumberFormat('fr-FR').format(Math.round(n||0))+' F'; }
+let toastTimer;
+function showToast(msg,dur=2800){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+// ════════════════════════════════════════════════════════
+// ██████  FIREBASE CONFIG — COLLER ICI  ██████████████████
+// ════════════════════════════════════════════════════════
+// Récupérer depuis :
+//   Firebase Console → Paramètres projet → Vos applications
+//   → SDK setup and configuration → Config
+//
+// Remplacer le bloc ci-dessous par votre propre config :
+// ────────────────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAlX8WIGDZVJsOs6UfAPAZNM44i8rj6fow",
+  authDomain: "digita-7e87e.firebaseapp.com",
+  projectId: "digita-7e87e",
+  storageBucket: "digita-7e87e.firebasestorage.app",
+  messagingSenderId: "240439149256",
+  appId: "1:240439149256:web:a7014d244647aaa8e8dbfd",
+  measurementId: "G-P123ESVK0Q"
+};
+// ════════════════════════════════════════════════════════
+
+// ── Détection : Firebase disponible ? ───────────────────
+const FB_ENABLED = (
+  FIREBASE_CONFIG.apiKey !== 'VOTRE_API_KEY' &&
+  typeof firebase !== 'undefined'
+);
+
+// ── Instance Firestore ───────────────────────────────────
+let _db   = null;   // firebase.firestore()
+let _fbOk = false;  // connexion active
+
+// ── Listeners actifs (pour désabonnement au logout) ─────
+const _listeners = {};
+
+// ════════════════════════════════════════════════════════
+// FIREBASE INIT + SYNC
+// ════════════════════════════════════════════════════════
+function simulateFB() {
+  const dot = document.getElementById('fbDot');
+
+  // ── Offline/online natif (toujours actif) ───────────
+  window.addEventListener('online',  () => {
+    if (!FB_ENABLED) { dot.className = 't-dot ok'; }
+    showToast('🟢 Connexion rétablie');
+  });
+  window.addEventListener('offline', () => {
+    dot.className = 't-dot err';
+    showToast('🔴 Hors ligne — données locales actives');
+  });
+
+  if (!FB_ENABLED) {
+    // Mode localStorage pur — dot vert statique
+    dot.className = 't-dot ok';
+    console.info('[Firebase] Config non renseignée — mode localStorage');
+    return;
+  }
+
+  // ── Initialisation Firebase ─────────────────────────
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.firestore();
+
+    // Persistance offline Firestore
+    _db.enablePersistence({ synchronizeTabs: true })
+      .catch(e => {
+        if (e.code === 'failed-precondition') console.warn('[FB] Multi-onglets — persistence désactivée');
+        else if (e.code === 'unimplemented')  console.warn('[FB] Navigateur sans support offline');
+      });
+
+    // Indicateur de connexion en temps réel
+    const connRef = firebase.database
+      ? firebase.database().ref('.info/connected')
+      : null;
+
+    if (connRef) {
+      connRef.on('value', snap => {
+        _fbOk = snap.val() === true;
+        dot.className = 't-dot ' + (_fbOk ? 'ok' : 'err');
+      });
+    } else {
+      // Firestore seul — test ping
+      _db.collection('_ping').limit(1).get()
+        .then(() => { _fbOk = true;  dot.className = 't-dot ok'; })
+        .catch(() => { _fbOk = false; dot.className = 't-dot err'; });
+    }
+
+    // Démarrer la synchronisation temps réel
+    startRealtimeSync();
+    console.info('[Firebase] ✓ Connecté au projet:', FIREBASE_CONFIG.projectId);
+
+  } catch (e) {
+    dot.className = 't-dot err';
+    console.error('[Firebase] Erreur init:', e.message);
+    showToast('⚠️ Firebase non initialisé — mode local');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// SYNC FIRESTORE ↔ localStorage (multi-tenant)
+// ════════════════════════════════════════════════════════
+function startRealtimeSync() {
+  if (!_db || !STATE.shopId || STATE.shopId === '_sa') return;
+  const shopId = STATE.shopId;
+
+  // Stoppe les anciens listeners
+  stopListeners();
+
+  // Collections à synchroniser
+  const cols = ['prods', 'sales', 'clients', 'entrees', 'emps'];
+
+  cols.forEach(col => {
+    const ref = _db.collection('shops').doc(shopId).collection(col)
+                   .orderBy('_ts', 'desc');
+
+    _listeners[col] = ref.onSnapshot(snap => {
+      if (snap.metadata.hasPendingWrites) return; // ignorer les writes locaux
+      const data = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+      // Fusionner avec localStorage
+      DB.set(col, data);
+      renderAll(); // re-render silencieux
+    }, err => {
+      console.warn('[FB Sync] Erreur '+col+':', err.message);
+    });
+  });
+
+  // Sync caisse state
+  _listeners['caisse'] = _db.collection('shops').doc(shopId)
+    .collection('meta').doc('caisse')
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      DB.set('caisse', data);
+      if (data.ouverte !== STATE.caisseOuverte) {
+        STATE.caisseOuverte = data.ouverte;
+        STATE.fondCaisse    = data.fond || 0;
+        updateCaisseUI();
+      }
+    });
+
+  console.info('[FB Sync] Listeners démarrés pour shop:', shopId);
+}
+
+function stopListeners() {
+  Object.values(_listeners).forEach(unsub => {
+    if (typeof unsub === 'function') unsub();
+  });
+  Object.keys(_listeners).forEach(k => delete _listeners[k]);
+}
+
+// ════════════════════════════════════════════════════════
+// ÉCRITURE FIRESTORE (wrapper — remplace DB.set)
+// Écriture simultanée localStorage + Firestore
+// ════════════════════════════════════════════════════════
+function fbWrite(collection, docId, data) {
+  // Toujours écrire en local d'abord (offline-first)
+  // (DB.set est appelé avant fbWrite dans chaque saveFn)
+
+  if (!_db || !FB_ENABLED || !STATE.shopId || STATE.shopId === '_sa') return;
+
+  const ref = _db.collection('shops')
+                 .doc(STATE.shopId)
+                 .collection(collection)
+                 .doc(String(docId));
+
+  ref.set({ ...data, _ts: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+     .catch(e => console.warn('[FB Write]', collection, docId, e.message));
+}
+
+function fbWriteDoc(path, data) {
+  if (!_db || !FB_ENABLED || !STATE.shopId || STATE.shopId === '_sa') return;
+  _db.doc(path)
+     .set({ ...data, _ts: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+     .catch(e => console.warn('[FB WriteDoc]', path, e.message));
+}
+
+// ════════════════════════════════════════════════════════
+// PATCH : surcharger saveSales / saveProds / etc.
+// pour écrire aussi dans Firestore
+// ════════════════════════════════════════════════════════
+const _origSaveSales   = saveSales;
+const _origSaveProds   = saveProds;
+const _origSaveClients = saveClients;
+const _origSaveEntrees = saveEntrees;
+const _origSaveCaisseS = saveCaisseS;
+
+// Surcharge saveSales — envoie chaque nouvelle vente à Firestore
+saveSales = function(arr) {
+  _origSaveSales(arr);
+  if (!arr.length) return;
+  const last = arr[0]; // vente la plus récente
+  fbWrite('sales', last.id, last);
+};
+
+// Surcharge saveProds — sync tout le catalogue
+saveProds = function(arr) {
+  _origSaveProds(arr);
+  arr.forEach(p => fbWrite('prods', p.id, p));
+};
+
+// Surcharge saveClients
+saveClients = function(arr) {
+  _origSaveClients(arr);
+  arr.forEach(c => fbWrite('clients', c.id, c));
+};
+
+// Surcharge saveEntrees
+saveEntrees = function(arr) {
+  _origSaveEntrees(arr);
+  if (!arr.length) return;
+  const last = arr[0];
+  fbWrite('entrees', last.id, last);
+};
+
+// Surcharge saveCaisseS — document unique /meta/caisse
+saveCaisseS = function(data) {
+  _origSaveCaisseS(data);
+  if (!STATE.shopId || STATE.shopId === '_sa') return;
+  fbWriteDoc(`shops/${STATE.shopId}/meta/caisse`, data);
+};
+
+// ════════════════════════════════════════════════════════
+// ─────────── BLE THERMAL PRINTER — POS-80C ───────────
+// ════════════════════════════════════════════════════════
+const BLE={
+  SVC1:'000018f0-0000-1000-8000-00805f9b34fb',CHR1:'00002af1-0000-1000-8000-00805f9b34fb',
+  SVC2:'49535343-fe7d-4ae5-8fa9-9fafd205e455',CHR2:'49535343-8841-43f4-a8d4-ecbe34729bb3',
+  SVC3:'0000ff00-0000-1000-8000-00805f9b34fb',CHR3:'0000ff02-0000-1000-8000-00805f9b34fb',
+  device:null,server:null,char:null,connected:false,CHUNK:128,DELAY:30,
+};
+const ESC=0x1B,GS=0x1D;
+const P={
+  INIT:()=>new Uint8Array([ESC,0x40]),
+  PC437:()=>new Uint8Array([ESC,0x74,0x00]),
+  AL:()=>new Uint8Array([ESC,0x61,0x00]),
+  AC:()=>new Uint8Array([ESC,0x61,0x01]),
+  AR:()=>new Uint8Array([ESC,0x61,0x02]),
+  BON:()=>new Uint8Array([ESC,0x45,0x01]),
+  BOF:()=>new Uint8Array([ESC,0x45,0x00]),
+  DBL:()=>new Uint8Array([GS,0x21,0x10]),
+  NRM:()=>new Uint8Array([GS,0x21,0x00]),
+  FD:(n=1)=>new Uint8Array([ESC,0x64,n]),
+  CUT:()=>new Uint8Array([GS,0x56,0x42,0x00]),
+};
+const W=48;
+function enc(s){
+  const map={'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','ù':'u','û':'u','ü':'u','ô':'o','ö':'o','î':'i','ï':'i','ç':'c','É':'E','È':'E','À':'A','Â':'A','Ù':'U','Û':'U','Ô':'O','Î':'I','Ç':'C','œ':'oe','Œ':'OE'};
+  const r=s.replace(/[^\x00-\x7F]/g,c=>map[c]||'?');
+  const b=new Uint8Array(r.length);
+  for(let i=0;i<r.length;i++) b[i]=r.charCodeAt(i)&0xFF;
+  return b;
+}
+function tLine(s){return enc((s||'').substring(0,W).padEnd(W)+'\n');}
+function tCenter(s){const p=Math.max(0,Math.floor((W-s.length)/2));return enc(' '.repeat(p)+s.substring(0,W)+'\n');}
+function tCols(l,r){const rv=(r||'').substring(0,16);const lv=(l||'').substring(0,W-rv.length-1);return enc(lv.padEnd(W-rv.length)+rv+'\n');}
+function tSep(){return enc('-'.repeat(W)+'\n');}
+function cat(...arrs){const t=arrs.reduce((a,b)=>a+b.length,0);const o=new Uint8Array(t);let off=0;for(const a of arrs){o.set(a,off);off+=a.length;}return o;}
+
+function buildTicket(sale){
+  const hdr=ls.get('bleHeader','CAVE A VIN OUAGADOUGOU');
+  const ftr=ls.get('bleFooter','Merci de votre visite!');
+  const d=new Date(sale.ts);
+  const pay={especes:'Especes',mobile:'Mobile Money',credit:'Credit'};
+  let p=[P.INIT(),P.PC437(),P.AC(),P.BON(),P.DBL(),enc(hdr.substring(0,W)+'\n'),P.NRM(),P.BOF(),P.FD(1),enc('TICKET DE CAISSE\n'),tSep(),P.AL(),
+    enc(`Date : ${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}\n`),
+    enc(`Ref  : #${String(sale.id).slice(-8)}\n`),enc(`Vendeur : ${sale.caissiere||'?'}\n`),tSep()];
+  sale.items.forEach(i=>{p.push(enc(i.nom.substring(0,28)+'\n'));p.push(tCols('  '+i.qty+' x '+fmtF(i.prix).replace(/\s/g,''),fmtF(i.prix*i.qty).replace(/\s/g,'')));});
+  p.push(tSep());
+  if(sale.discount>0){p.push(tCols('Sous-total',fmtF(sale.subtotal).replace(/\s/g,'')));p.push(tCols('Remise','-'+fmtF(sale.discount).replace(/\s/g,'')));}
+  p.push(P.BON(),tCols('TOTAL',fmtF(sale.total).replace(/\s/g,'')),P.BOF());
+  p.push(tCols('Paiement',pay[sale.payMethod]||sale.payMethod));
+  if(sale.payMethod==='especes'){const r=parseFloat(document.getElementById('amtRecv')?.value||sale.total)||sale.total;const m=r-sale.total;if(m>0)p.push(tCols('Monnaie rendue',fmtF(m).replace(/\s/g,'')));}
+  if(sale.ref)p.push(enc('Ref MM: '+sale.ref+'\n'));
+  p.push(tSep(),P.AC(),enc(ftr.substring(0,W)+'\n'),P.FD(4),P.CUT());
+  return cat(...p);
+}
+
+function buildRapport(){
+  const sales=getSales(),today=new Date().toDateString();
+  const ts=sales.filter(s=>new Date(s.ts).toDateString()===today);
+  const ca=ts.reduce((a,s)=>a+s.total,0);
+  const hdr=ls.get('bleHeader','CAVE A VIN OUAGADOUGOU');
+  const d=new Date();
+  const topMap={};ts.forEach(s=>s.items.forEach(i=>topMap[i.nom]=(topMap[i.nom]||0)+i.qty));
+  const top=Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  let p=[P.INIT(),P.PC437(),P.AC(),P.BON(),P.DBL(),enc(hdr.substring(0,W)+'\n'),P.NRM(),P.BOF(),P.FD(1),enc('RAPPORT JOURNALIER\n'),enc(d.toLocaleDateString('fr-FR')+'\n'),tSep(),P.AL(),
+    tCols('Transactions',String(ts.length)),P.BON(),tCols('CA Total',fmtF(ca).replace(/\s/g,'')),P.BOF(),tSep(),
+    enc('Paiements:\n'),
+    tCols('  Especes',fmtF(ts.filter(s=>s.payMethod==='especes').reduce((a,s)=>a+s.total,0)).replace(/\s/g,'')),
+    tCols('  Mobile',fmtF(ts.filter(s=>s.payMethod==='mobile').reduce((a,s)=>a+s.total,0)).replace(/\s/g,'')),
+    tCols('  Credits',fmtF(ts.filter(s=>s.payMethod==='credit').reduce((a,s)=>a+s.total,0)).replace(/\s/g,'')),
+  ];
+  if(top.length){p.push(tSep(),enc('Top produits:\n'));top.forEach(([n,q],i)=>p.push(enc('  '+(i+1)+'. '+n.substring(0,28)+': '+q+'\n')));}
+  p.push(tSep(),P.AC(),enc('Imprime par: '+(STATE.user||'?')+'\n'),P.FD(4),P.CUT());
+  return cat(...p);
+}
+
+function previewTicket(sale){
+  const hdr=ls.get('bleHeader','CAVE A VIN OUAGADOUGOU');
+  const ftr=ls.get('bleFooter','Merci de votre visite!');
+  const d=new Date(sale.ts);
+  const lns=[hdr.substring(0,32).padStart(Math.floor((32+hdr.length)/2)),'TICKET DE CAISSE','-'.repeat(32),
+    `Date: ${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`,
+    `Ref : #${String(sale.id).slice(-8)}`,'-'.repeat(32)];
+  sale.items.forEach(i=>{lns.push(i.nom.substring(0,24));lns.push(`  ${i.qty} x ${fmtF(i.prix)} = ${fmtF(i.prix*i.qty)}`);});
+  lns.push('-'.repeat(32));
+  if(sale.discount>0){lns.push(`Sous-total: ${fmtF(sale.subtotal)}`);lns.push(`Remise: -${fmtF(sale.discount)}`);}
+  lns.push(`TOTAL: ${fmtF(sale.total)}`,`Paiement: ${sale.payMethod}`,'-'.repeat(32),ftr.substring(0,32));
+  return lns.join('\n');
+}
+
+async function bleSend(data){
+  if(!BLE.connected||!BLE.char) throw new Error('Non connectée');
+  const wr=BLE.char.properties.writeWithoutResponse;
+  for(let i=0;i<data.length;i+=BLE.CHUNK){
+    const chunk=data.slice(i,i+BLE.CHUNK);
+    if(wr) await BLE.char.writeValueWithoutResponse(chunk);
+    else   await BLE.char.writeValue(chunk);
+    await new Promise(r=>setTimeout(r,BLE.DELAY));
+  }
+}
+
+async function bleConnect(){
+  if(!navigator.bluetooth){showToast('❌ Web Bluetooth non supporté');return;}
+  setBleUI('connecting');
+  try{
+    BLE.device=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'POS'},{namePrefix:'Printer'},{namePrefix:'BlueTooth'},{namePrefix:'RPP'},{namePrefix:'BT'}],
+      optionalServices:[BLE.SVC1,BLE.SVC2,BLE.SVC3]
+    });
+    BLE.server=await BLE.device.gatt.connect();
+    BLE.device.addEventListener('gattserverdisconnected',onBleDisc);
+    BLE.char=await findWriteChar();
+    if(!BLE.char) throw new Error('Char non trouvée');
+    BLE.connected=true; setBleUI('on'); showToast('🖨️ Imprimante connectée: '+(BLE.device.name||'POS-80C'));
+  }catch(e){setBleUI('off');if(e.name!=='NotFoundError')showToast('❌ '+e.message);}
+}
+async function findWriteChar(){
+  for(const [s,c] of [[BLE.SVC1,BLE.CHR1],[BLE.SVC2,BLE.CHR2],[BLE.SVC3,BLE.CHR3]]){
+    try{const svc=await BLE.server.getPrimaryService(s);return await svc.getCharacteristic(c);}catch(_){}
+  }
+  try{const svcs=await BLE.server.getPrimaryServices();for(const s of svcs){const cs=await s.getCharacteristics();for(const c of cs){if(c.properties.writeWithoutResponse||c.properties.write)return c;}}}catch(_){}
+  return null;
+}
+function onBleDisc(){
+  BLE.connected=false;BLE.char=null;setBleUI('off');showToast('🖨️ Déconnectée');
+  if(BLE.device) setTimeout(async()=>{
+    if(BLE.connected) return;
+    try{BLE.server=await BLE.device.gatt.connect();BLE.char=await findWriteChar();if(BLE.char){BLE.connected=true;setBleUI('on');showToast('🖨️ Reconnectée!');}}catch(_){}
+  },3000);
+}
+async function bleDisconnect(){BLE.device?.gatt?.disconnect();BLE.connected=false;BLE.char=null;setBleUI('off');}
+function setBleUI(st){
+  const dots=[document.getElementById('bleDot'),document.getElementById('bleDotM')];
+  const lbl=document.getElementById('bleStatusLbl');
+  dots.forEach(d=>{if(!d)return;d.className='t-dot ble';if(st==='on')d.classList.add('on');if(st==='connecting')d.classList.add('blink');});
+  if(lbl) lbl.textContent=st==='on'?'Connectée — '+(BLE.device?.name||'POS-80C'):st==='connecting'?'Connexion...':'Non connectée';
+  const bc=document.getElementById('btnBleConn'),bd=document.getElementById('btnBleDisc');
+  const bt=document.getElementById('btnBleTest'),br=document.getElementById('btnBleRpt');
+  if(bc) bc.style.display=st==='on'?'none':'flex';
+  if(bd) bd.style.display=st==='on'?'flex':'none';
+  if(bt) bt.disabled=st!=='on';
+  if(br) br.disabled=st!=='on';
+}
+async function printSale(sale){
+  if(!BLE.connected){showToast('⚠️ Imprimante non connectée');return;}
+  showToast('🖨️ Impression...',1400);
+  try{await bleSend(buildTicket(sale));showToast('✅ Ticket imprimé');addAudit('Impression ticket','#'+String(sale.id).slice(-8),'');}
+  catch(e){showToast('❌ '+e.message);}
+}
+async function printLastTicket(){
+  if(!STATE.lastSale){showToast('Aucun ticket');return;}
+  await printSale(STATE.lastSale);
+}
+async function bleTest(){
+  await printSale({id:Date.now(),ts:new Date().toISOString(),caissiere:STATE.user||'Test',items:[{id:1,nom:'Bordeaux Rouge AOP',prix:8500,qty:2},{id:6,nom:'Heineken 33cl',prix:800,qty:3}],total:19400,subtotal:19400,discount:0,payMethod:'especes'});
+}
+async function bleRapport(){
+  if(!BLE.connected){showToast('⚠️ Imprimante non connectée');return;}
+  showToast('🖨️ Rapport...',1400);
+  try{await bleSend(buildRapport());showToast('✅ Rapport imprimé');addAudit('Impression rapport','','');}
+  catch(e){showToast('❌ '+e.message);}
+}
+function loadPrinterConf(){
+  const h=ls.get('bleHeader','');const f=ls.get('bleFooter','');const a=ls.get('bleAutoprint',false);
+  if(document.getElementById('pHeader'))document.getElementById('pHeader').value=h;
+  if(document.getElementById('pFooter'))document.getElementById('pFooter').value=f;
+  if(document.getElementById('autoprint'))document.getElementById('autoprint').checked=a;
+  setBleUI('off');
+}
+function savePrinterConf(){
+  ls.set('bleHeader',document.getElementById('pHeader')?.value||'CAVE A VIN OUAGADOUGOU');
+  ls.set('bleFooter',document.getElementById('pFooter')?.value||'Merci de votre visite!');
+  ls.set('bleAutoprint',document.getElementById('autoprint')?.checked||false);
+  showToast('✅ Config imprimante enregistrée');
+}
+
+// ════════════════════════════════════════════════════════
+// TRIPLE-CLIC SUPER ADMIN — "CaveManager Pro"
+// ════════════════════════════════════════════════════════
+let _brandClicks = 0;
+let _brandTimer  = null;
+
+function handleBrandClick() {
+  _brandClicks++;
+  clearTimeout(_brandTimer);
+
+  if (_brandClicks >= 3) {
+    _brandClicks = 0;
+    // Feedback visuel discret
+    const el = document.getElementById('authBrandTitle');
+    el.style.color = 'var(--purple)';
+    setTimeout(() => { el.style.color = 'var(--gold)'; }, 400);
+    // Ouvrir modal PIN SA
+    resetSaPin();
+    openModal('saPinModal');
+    return;
+  }
+
+  _brandTimer = setTimeout(() => { _brandClicks = 0; }, 600);
+}
+
+// PIN SA (6 chiffres — DEV_PIN = '761278')
+let _saBuffer = '';
+
+function saPin(d) {
+  if (_saBuffer.length >= 6) return;
+  _saBuffer += d;
+  updateSaDots();
+  if (_saBuffer.length === 6) setTimeout(saPinConfirm, 220);
+}
+
+function saPinClear() {
+  _saBuffer = '';
+  updateSaDots();
+}
+
+function updateSaDots(err = false) {
+  for (let i = 0; i < 6; i++) {
+    const d = document.getElementById('sa' + i);
+    if (!d) continue;
+    d.className = 'pin-dot' + (i < _saBuffer.length ? ' filled' : '') + (err ? ' error' : '');
+  }
+}
+
+function saPinConfirm() {
+  if (_saBuffer === DEV_PIN) {
+    closeModal('saPinModal');
+    resetSaPin();
+    // Connexion Super Admin
+    STATE.role      = 'superadmin';
+    STATE.user      = 'Super Admin';
+    STATE.shopId    = '_sa';
+    STATE.shopName  = 'CaveManager Pro';
+    STATE.plan      = 'enterprise';
+    launchApp();
+    goNav('pageSA', '');
+    renderSuperAdmin();
+    showToast('🛡️ Super Admin connecté');
+  } else {
+    updateSaDots(true);
+    showToast('❌ PIN incorrect');
+    setTimeout(() => { _saBuffer = ''; updateSaDots(); }, 700);
+  }
+}
+
+function resetSaPin() {
+  _saBuffer = '';
+  updateSaDots();
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  // ── Service Worker ──────────────────────────────
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js')
+      .then(reg=>{
+        console.log('[SW] Enregistré — scope:',reg.scope);
+        reg.addEventListener('updatefound',()=>{
+          const nw=reg.installing;
+          nw.addEventListener('statechange',()=>{
+            if(nw.state==='installed'&&navigator.serviceWorker.controller)
+              showToast('🔄 Mise à jour disponible — rechargez');
+          });
+        });
+      })
+      .catch(e=>console.warn('[SW] Erreur:',e));
+  }
+  initDemoShop();
+  renderPlansGrid();
+  setTimeout(()=>{
+    document.getElementById('splash').style.opacity='0';
+    setTimeout(()=>{
+      document.getElementById('splash').style.display='none';
+      populateLoginShops();
+      document.getElementById('authScreen').style.display='flex';
+    },500);
+  },2000);
+});
+</script>
+</body>
+</html>
